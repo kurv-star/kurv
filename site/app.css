@@ -1,0 +1,370 @@
+/* Kurv — the visual language is the Danish shelf-edge tag and the till receipt.
+ * Black on near-white, every number in tabular mono, one promo red used only
+ * where a price is genuinely below its usual level. No webfonts: this gets
+ * opened in shops with one bar of signal. */
+
+:root {
+  --paper: #fbfaf7;
+  --card: #ffffff;
+  --ink: #16140f;
+  --ink2: #625c51;
+  --ink3: #928b7e;
+  --rule: #e3dfd5;
+  --rule2: #f0ede6;
+
+  --promo: #d81e28;   /* live discount, and nothing else */
+  --aging: #a8700f;   /* deal past its usual week */
+  --stale: #8a8377;   /* deal old enough to distrust */
+  --stock: #1d5c4a;   /* healthy cover */
+  --warn:  #b45309;   /* expiry / overstock */
+
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+
+  --pad: 16px;
+  --r: 10px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+/* ---------------------------------------------------------------- type roles */
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink3);
+}
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink2); font-size: 13px; }
+.tiny { font-size: 12px; color: var(--ink3); }
+
+h1 { font-size: 19px; margin: 0; letter-spacing: -.01em; }
+h2 {
+  font-size: 12px; font-family: var(--mono); font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--ink2);
+  margin: 26px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--rule);
+}
+h2:first-child { margin-top: 0; }
+
+/* --------------------------------------------------------------------- chrome */
+
+header {
+  position: sticky; top: 0; z-index: 30;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+  padding: calc(10px + env(safe-area-inset-top)) var(--pad) 10px;
+}
+.hrow { display: flex; align-items: center; gap: 10px; }
+.hrow h1 { flex: 1; }
+
+/* The snapshot line. This is load-bearing: a deal is only as trustworthy as
+   the file it came from, so the file's age is never more than a glance away. */
+.snapshot {
+  margin-top: 8px; display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; color: var(--ink3);
+}
+.snapshot .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--stock); }
+.snapshot.warn { color: var(--warn); }
+.snapshot.warn .dot { background: var(--warn); }
+
+main { padding: 18px var(--pad) 8px; }
+.panel { display: none; }
+.panel.on { display: block; }
+
+nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  background: var(--card); border-top: 1px solid var(--rule);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+nav button {
+  border: 0; background: none; padding: 11px 4px 12px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink3);
+  border-top: 2px solid transparent; margin-top: -1px;
+}
+nav button .g { display: block; font-size: 17px; letter-spacing: 0; margin-bottom: 1px; }
+nav button.on { color: var(--ink); border-top-color: var(--ink); }
+
+/* ------------------------------------------------------------ verdict cards
+   Each card answers one question and keeps its evidence folded away. The left
+   stripe carries the status, so the list is scannable without reading it. */
+
+.vcard {
+  background: var(--card); border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule);
+  border-radius: var(--r); padding: 14px var(--pad); margin-bottom: 11px;
+}
+.vcard.low { border-left-color: var(--promo); }
+.vcard.deal { border-left-color: var(--stock); }
+.vcard.unknown, .vcard.empty { border-left-color: var(--aging); }
+.vcard.ok { border-left-color: var(--rule); }
+
+.vtop { display: flex; gap: 12px; align-items: flex-start; }
+.vname {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink3); margin-bottom: 3px;
+}
+.vhead { font-size: 17px; font-weight: 650; line-height: 1.25; letter-spacing: -.01em; }
+.vsub { font-size: 13px; color: var(--ink2); margin-top: 3px; line-height: 1.4; }
+.vsub.warnc, .warnc { color: var(--warn); }
+.vsub.goodc { color: var(--stock); }
+.pblock { text-align: right; flex: 0 0 auto; }
+
+/* Worth-a-trip banner: the only thing above the fold that is not a card. */
+.banner {
+  border-radius: var(--r); padding: 11px var(--pad) 13px;
+  margin-bottom: 14px; background: var(--ink);
+}
+.banner .eyebrow { color: rgba(251,250,247,.6); }
+.banner .blist { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 7px; }
+.banner .blist span {
+  background: var(--paper); color: var(--ink); border-radius: 999px;
+  padding: 3px 11px; font-size: 14px; font-weight: 600;
+}
+
+/* -------------------------------------------------------------- disclosure */
+
+details.disc { margin-top: 12px; border-top: 1px solid var(--rule2); }
+details.disc summary {
+  list-style: none; cursor: pointer; padding: 9px 0 2px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink3);
+  display: flex; align-items: center; gap: 7px;
+}
+details.disc summary::-webkit-details-marker { display: none; }
+details.disc summary::before { content: "\25B8"; font-size: 9px; transition: transform .15s; }
+details.disc[open] summary::before { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { details.disc summary::before { transition: none } }
+details.disc .dbadge {
+  margin-left: auto; font-size: 10px; letter-spacing: .06em;
+  color: var(--ink3); text-transform: none;
+}
+details.disc .dbody { padding: 6px 0 2px; }
+
+.prow { border-top: 1px solid var(--rule2); padding: 11px 0; }
+.prow:first-child { border-top: 0; padding-top: 4px; }
+
+.verdictbox {
+  margin-top: 12px; border-radius: 8px; padding: 11px 12px;
+  background: #fdfcfa; border: 1px solid var(--rule); border-left: 3px solid var(--rule);
+}
+.verdictbox.need { border-left-color: #1d4ed8; }
+.verdictbox.opportunity { border-left-color: var(--stock); }
+.verdictbox.overstock { border-left-color: var(--warn); }
+.verdictbox.topup { border-left-color: var(--ink3); }
+
+.gear {
+  border: 1px solid var(--rule); background: var(--card);
+  width: 36px; height: 36px; border-radius: 9px; font-size: 16px; line-height: 1; padding: 0;
+}
+.gear.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+.sheethead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.rowline { display: flex; gap: 12px; align-items: flex-start; }
+.grow { flex: 1; min-width: 0; }
+.name { font-weight: 600; font-size: 15px; line-height: 1.3; }
+.store {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink3);
+}
+
+.price { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 19px; font-weight: 700; white-space: nowrap; }
+.price.off { color: var(--promo); }
+.was { font-family: var(--mono); font-size: 12px; color: var(--ink3); text-decoration: line-through; }
+.perunit { font-family: var(--mono); font-size: 11px; color: var(--ink2); }
+
+/* ------------------------------------------------------------ THE SHELF STAMP
+   The signature element. A discount is two facts, not one: how deep, and how
+   long it has been running. The tick strip shows the second at a glance —
+   fourteen cells, one per day since the price dropped, with the notch at day
+   seven where a Danish promo week normally ends. Past the notch you are
+   looking at either a long campaign or a stale feed, and the colour says so. */
+
+.stamp {
+  margin-top: 8px; border: 1px solid var(--rule); border-left: 3px solid var(--stale);
+  border-radius: 6px; padding: 7px 9px 8px; background: #fdfcfa;
+}
+.stamp.fresh     { border-left-color: var(--promo);  background: #fef7f7; }
+.stamp.aging     { border-left-color: var(--aging);  background: #fdfaf3; }
+.stamp.stale     { border-left-color: var(--stale); }
+.stamp.newnormal { border-left-color: var(--ink3); }
+.stamp.up        { border-left-color: var(--ink3); }
+
+.stamp-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.stamp.fresh .stamp-head { color: var(--promo); }
+.stamp.aging .stamp-head { color: var(--aging); }
+.stamp.stale .stamp-head, .stamp.newnormal .stamp-head, .stamp.up .stamp-head { color: var(--ink2); }
+.stamp-note { font-size: 12px; color: var(--ink2); margin-top: 3px; line-height: 1.35; }
+
+.ticks { display: flex; gap: 2px; margin-top: 6px; align-items: center; }
+.ticks i {
+  display: block; width: 100%; height: 7px; border-radius: 1px;
+  background: var(--rule2); border: 1px solid var(--rule);
+}
+.ticks i.on { background: var(--stale); border-color: var(--stale); }
+.stamp.fresh .ticks i.on { background: var(--promo); border-color: var(--promo); }
+.stamp.aging .ticks i.on { background: var(--aging); border-color: var(--aging); }
+.ticks .notch { width: 1px; height: 11px; background: var(--ink3); flex: 0 0 1px; margin: 0 1px; }
+.ticks .over {
+  font-family: var(--mono); font-size: 10px; color: var(--ink2);
+  flex: 0 0 auto; padding-left: 4px; white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- class chips */
+
+.chip {
+  display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 4px; border: 1px solid;
+}
+.chip.need        { color: #1d4ed8; border-color: #bfd3ff; background: #f0f5ff; }
+.chip.opportunity { color: var(--stock); border-color: #b9dccf; background: #f0f9f5; }
+.chip.overstock   { color: var(--warn); border-color: #f0d3a8; background: #fdf7ee; }
+.chip.topup       { color: var(--ink2); border-color: var(--rule); background: var(--rule2); }
+
+/* -------------------------------------------------------------------- buttons */
+
+.btn {
+  border: 1px solid var(--ink); background: var(--ink); color: var(--paper);
+  border-radius: 8px; padding: 9px 14px; font-size: 14px; font-weight: 600;
+}
+.btn.ghost { background: var(--card); color: var(--ink); border-color: var(--rule); }
+.btn.danger { background: var(--card); color: var(--promo); border-color: #f0c6c8; }
+.btn.sm { padding: 6px 10px; font-size: 13px; }
+.btn:disabled { opacity: .4; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.watch {
+  border: 1px solid var(--rule); background: var(--card); color: var(--ink2);
+  width: 34px; height: 34px; border-radius: 8px; flex: 0 0 34px;
+  font-family: var(--mono); font-size: 17px; line-height: 1; padding: 0;
+}
+.watch.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+/* --------------------------------------------------------------------- fields */
+
+.field { margin-bottom: 11px; }
+.field label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink3); margin-bottom: 4px; }
+.field input, .field select {
+  width: 100%; border: 1px solid var(--rule); background: var(--card);
+  border-radius: 8px; padding: 9px 10px; font-size: 16px;
+}
+.field .hint { font-size: 12px; color: var(--ink3); margin-top: 4px; line-height: 1.35; }
+.f2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.f3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+#q {
+  width: 100%; margin-top: 12px; margin-top: 10px; border: 1px solid var(--rule); background: var(--card);
+  border-radius: var(--r); padding: 11px 12px; font-size: 16px;
+}
+.storefilter { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+.storefilter button {
+  border: 1px solid var(--rule); background: var(--card); color: var(--ink2);
+  border-radius: 999px; padding: 4px 11px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .05em;
+}
+.storefilter button.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+/* --------------------------------------------------------------------- tables */
+
+table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+th {
+  text-align: left; font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink3); font-weight: 700; padding: 5px 6px; border-bottom: 1px solid var(--rule);
+}
+td { padding: 5px 6px; border-bottom: 1px solid var(--rule2); }
+td.r, th.r { text-align: right; }
+tr.short td { background: #fef6f6; }
+tr.short td:first-child::after { content: " ▲"; color: var(--promo); }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* --------------------------------------------------------------------- ledger */
+
+.stat { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; }
+.stat + .stat { border-top: 1px solid var(--rule2); }
+.stat .k { font-size: 13px; color: var(--ink2); }
+.stat .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 700; }
+.stat .v.good { color: var(--stock); }
+.stat .v.bad { color: var(--promo); }
+
+.bigsave { text-align: center; padding: 4px 0 10px; }
+.bigsave .v { font-family: var(--mono); font-size: 34px; font-weight: 700; color: var(--stock); letter-spacing: -.02em; }
+.bigsave .k { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink3); }
+
+svg.chart { width: 100%; display: block; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--ink2); }
+.legend span { display: flex; align-items: center; gap: 5px; }
+.legend i { width: 14px; height: 2px; display: block; }
+
+/* ---------------------------------------------------------------------- lots */
+
+.lot { border-top: 1px solid var(--rule2); padding: 9px 0; }
+.lot:first-of-type { border-top: 0; }
+.exp { font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+.exp.ok { color: var(--stock); }
+.exp.soon { color: var(--warn); }
+.exp.gone { color: var(--promo); }
+
+/* --------------------------------------------------------------------- modal */
+
+.modal {
+  position: fixed; inset: 0; z-index: 60; display: none;
+  background: rgba(22,20,15,.42);
+  align-items: flex-end; justify-content: center;
+}
+.modal.on { display: flex; }
+.sheet {
+  background: var(--card); width: 100%; max-width: 560px;
+  border-radius: 16px 16px 0 0; padding: 18px var(--pad) calc(20px + env(safe-area-inset-bottom));
+  max-height: 90vh; overflow-y: auto;
+  animation: rise .18s ease-out;
+}
+@keyframes rise { from { transform: translateY(14px); opacity: .6 } to { transform: none; opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none } }
+.sheet h3 { margin: 0 0 3px; font-size: 17px; }
+
+/* --------------------------------------------------------------------- toast */
+
+#toast {
+  position: fixed; left: 50%; bottom: calc(78px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(8px);
+  background: var(--ink); color: var(--paper);
+  padding: 9px 15px; border-radius: 999px; font-size: 13px;
+  opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+  z-index: 70; max-width: 90vw; text-align: center;
+}
+#toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.empty {
+  border: 1px dashed var(--rule); border-radius: var(--r);
+  padding: 22px 16px; text-align: center; color: var(--ink2); font-size: 14px;
+}
+.empty strong { display: block; color: var(--ink); margin-bottom: 3px; }
+
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
