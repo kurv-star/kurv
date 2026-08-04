@@ -48,7 +48,10 @@ button{background:none;border:0;cursor:pointer}
 
 /* ------------------------------------------------------------------ shell */
 header{
-  position:sticky;top:0;z-index:20;background:var(--paper);
+  /* Deliberately not sticky. A sticky header over a long list of cards with
+     clipped corners is what leaves paint trails on iOS Safari, and the nav at
+     the bottom already gives a fixed anchor. */
+  background:var(--paper);
   padding:calc(12px + env(safe-area-inset-top)) 16px 10px;
   border-bottom:1px solid var(--rule);
 }
@@ -68,14 +71,14 @@ h2:first-child{margin-top:2px}
 /* ------------------------------------------------------------------- card */
 .card{
   background:var(--card);border:1px solid var(--rule);border-radius:12px;
-  padding:13px 14px;margin-bottom:9px;position:relative;overflow:hidden;
+  padding:13px 14px;margin-bottom:9px;
 }
-/* The left edge is the status. One glance down the page tells you what needs
-   doing without reading a word. */
-.card.act::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
-.card.s-deal::before{background:var(--deal)}
-.card.s-need::before{background:var(--need)}
-.card.s-out::before{background:var(--gone)}
+/* The left edge is the status. A border rather than an absolutely positioned
+   pseudo-element, so nothing has to be clipped to the rounded corner. */
+.card.act{border-left-width:3px;padding-left:12px}
+.card.s-deal{border-left-color:var(--deal)}
+.card.s-need{border-left-color:var(--need)}
+.card.s-out{border-left-color:var(--gone)}
 .chead{display:flex;align-items:center;gap:9px;justify-content:space-between}
 .cname{font-size:15.5px;font-weight:640;letter-spacing:-.01em}
 .badge{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
@@ -96,9 +99,8 @@ h2:first-child{margin-top:2px}
 .fill{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--ink)}
 .card.s-need .fill{background:var(--need)}
 .card.s-out .fill{background:var(--gone)}
-.ghost{position:absolute;top:0;bottom:0;border-radius:0 5px 5px 0;opacity:.5;
-  background:repeating-linear-gradient(135deg,var(--deal) 0 2px,transparent 2px 5px)}
-.notch{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--mute);opacity:.75}
+.ahead{position:absolute;top:0;bottom:0;border-radius:0 5px 5px 0;background:#9ecdb4}
+.notch{position:absolute;top:0;bottom:0;width:1px;background:#8e8878}
 .gsub{display:flex;justify-content:space-between;gap:8px;margin-top:6px;
   font-size:12px;color:var(--mute)}
 .gsub .num{color:var(--ink)}
@@ -107,20 +109,17 @@ h2:first-child{margin-top:2px}
    The artifact this whole app is about. Store in the black bar, pack price
    large, price-per-unit beneath it because that is the number that actually
    decides anything. */
-.tag{display:flex;border:1px solid var(--ink);border-radius:7px;overflow:hidden;
-  margin:11px 0 0;background:#fff}
+.tag{border:1px solid var(--ink);border-radius:7px;margin:11px 0 0;background:#fff}
 .tag-store{background:var(--ink);color:var(--paper);font-size:9.5px;font-weight:700;
-  letter-spacing:.09em;text-transform:uppercase;padding:9px 7px;writing-mode:vertical-rl;
-  transform:rotate(180deg);text-align:center;flex:none}
-.tag-body{padding:8px 11px;flex:1;min-width:0}
+  letter-spacing:.09em;text-transform:uppercase;padding:5px 10px;
+  border-radius:5px 5px 0 0;display:flex;justify-content:space-between;gap:8px}
+.tag-body{padding:9px 11px 10px}
 .tag-top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
 .tag-price{font-size:22px;font-weight:680;line-height:1.05}
 .tag-unit{font-size:13px;font-weight:600;color:var(--deal)}
 .tag-was{font-size:11.5px;color:var(--faint);text-decoration:line-through}
 .tag-name{font-size:11.5px;color:var(--mute);margin-top:3px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tag-off{font-size:10px;font-weight:700;background:var(--deal);color:#fff;
-  padding:2px 5px;border-radius:3px;letter-spacing:.03em}
 
 .why{font-size:13px;color:var(--mute);margin-top:10px;line-height:1.4}
 .why b{color:var(--ink);font-weight:600}
@@ -142,8 +141,7 @@ h2:first-child{margin-top:2px}
   min-width:var(--tap);padding:0 12px;font-weight:500}
 .btn.sm{min-height:34px;font-size:13px;padding:0 11px;flex:none}
 .btn[disabled]{opacity:.4;pointer-events:none}
-.chev{transition:transform .18s}
-.open .chev{transform:rotate(180deg)}
+.chev{font-size:13px}
 
 .slim{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
   padding:11px 2px;min-height:var(--tap)}
@@ -156,7 +154,7 @@ h2:first-child{margin-top:2px}
 .f label{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;color:var(--faint);margin-bottom:5px}
 input[type=text],input[type=number],input[type=date],input[type=search],select{
-  width:100%;background:#fff;border:1px solid var(--rule);border-radius:8px;
+  -webkit-appearance:none;appearance:none;width:100%;background:#fff;border:1px solid var(--rule);border-radius:8px;
   padding:10px 11px;font-size:16px;min-height:var(--tap);
   font-family:var(--mono);font-variant-numeric:tabular-nums}
 input[type=text],input[type=search],select{font-family:var(--sans)}
@@ -226,7 +224,8 @@ svg.chart{width:100%;height:150px;display:block;margin-top:4px}
 .packin{width:62px;flex:none;padding:7px 6px;text-align:center;font-size:14px;
   min-height:36px;border-radius:6px}
 .kv .save{font-size:inherit}
-.res,.slim{background:none;border:0}
+.res{background:none;border:0}
+.slim{cursor:pointer}
 
 /* -------------------------------------------------------------------- nav */
 nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;
@@ -249,16 +248,19 @@ nav .pip{position:absolute;top:7px;right:calc(50% - 19px);min-width:15px;height:
 .modal.on{display:flex}
 .sheet{background:var(--paper);width:100%;max-width:640px;
   border-radius:16px 16px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));
-  max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  max-height:92vh;overflow-y:auto}
 .sheet h3{font-size:17px;font-weight:650;letter-spacing:-.01em}
 .sheet .sub{font-size:12.5px;color:var(--mute);margin-top:3px}
 .prev{background:var(--card);border:1px solid var(--rule);border-radius:10px;
   padding:12px;margin-top:13px}
-#toast{position:fixed;left:50%;bottom:calc(78px + env(safe-area-inset-bottom));
-  transform:translateX(-50%) translateY(14px);background:var(--ink);color:var(--paper);
-  padding:10px 15px;border-radius:8px;font-size:13.5px;z-index:80;opacity:0;
-  pointer-events:none;transition:opacity .2s,transform .2s;max-width:90vw;text-align:center}
-#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+/* Centred with left/right rather than a transform: a fixed, transformed,
+   fading element is the single most reliable way to get a ghost on iOS. */
+#toast{position:fixed;left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));
+  margin:0 auto;width:max-content;max-width:calc(100% - 24px);
+  background:var(--ink);color:var(--paper);
+  padding:10px 15px;border-radius:8px;font-size:13.5px;z-index:80;
+  visibility:hidden;opacity:0;pointer-events:none;transition:opacity .18s;text-align:center}
+#toast.on{visibility:visible;opacity:1}
 .note{background:var(--needbg);border:1px solid #e6d5b8;border-radius:9px;
   padding:11px 12px;font-size:13px;margin-bottom:12px;display:flex;
   justify-content:space-between;align-items:center;gap:10px}
@@ -1285,7 +1287,7 @@ function gauge(v, ghostDays) {
   var g = "";
   if (ghostDays && ghostDays > v.d.cover) {
     var gp = Math.max(0, Math.min(100, (Math.min(ghostDays, span) / span) * 100));
-    g = '<i class="ghost" style="left:' + pct.toFixed(1) + '%;width:' +
+    g = '<i class="ahead" style="left:' + pct.toFixed(1) + '%;width:' +
         Math.max(0, gp - pct).toFixed(1) + '%"></i>';
   }
   return '<div class="track"><i class="fill" style="width:' + pct.toFixed(1) + '%"></i>' +
@@ -1296,17 +1298,15 @@ function gauge(v, ghostDays) {
 
 function shelfTag(o, unit) {
   if (!o) return "";
-  var off = o.off >= 0.03
-    ? '<span class="tag-off">−' + Math.round(o.off * 100) + "%</span>" +
-      '<span class="tag-was">' + K.kr(o.regular) + "</span>"
-    : "";
+  var deal = o.off >= 0.03;
   return '<div class="tag">' +
-    '<div class="tag-store">' + esc(storeLabel(o.store)) + "</div>" +
+    '<div class="tag-store"><span>' + esc(storeLabel(o.store)) + "</span>" +
+      (deal ? "<span>−" + Math.round(o.off * 100) + "%</span>" : "") + "</div>" +
     '<div class="tag-body">' +
       '<div class="tag-top">' +
         '<span class="tag-price num">' + K.kr(o.price) + "</span>" +
         '<span class="tag-unit num">' + K.kr(o.unitPrice) + " kr/" + K.UNIT_PER[unit] + "</span>" +
-        off +
+        (deal ? '<span class="tag-was num">' + K.kr(o.regular) + "</span>" : "") +
       "</div>" +
       '<div class="tag-name">' + esc(o.name) + " · " +
         K.fmtQty(o.pack, unit) + " " + K.UNIT_LABEL[unit] + " a pack</div>" +
@@ -1399,10 +1399,11 @@ function cardHTML(v) {
       '" data-act="openBuy" data-id="' + it.id + '">Buy ' + d.packs +
       (d.packs === 1 ? " pack" : " packs") + " · " + K.kr(d.spend) + "</button>" +
       '<button class="btn ghost" data-act="toggle" data-id="' + it.id + '">' +
-      '<span class="chev">⌄</span></button></div>';
+      '<span class="chev">' + (EXPANDED[it.id] ? "⌃" : "⌄") + "</span></button></div>";
   } else {
     h += '<div class="row"><button class="btn ghost" data-act="toggle" data-id="' + it.id +
-      '" style="flex:1">Lookout list <span class="chev">⌄</span></button></div>';
+      '" style="flex:1">Lookout list <span class="chev">' +
+      (EXPANDED[it.id] ? "⌃" : "⌄") + "</span></button></div>";
   }
 
   h += footHTML(v);
@@ -1416,10 +1417,10 @@ function slimHTML(v) {
     ? K.kr(d.best.unitPrice) + " kr/" + K.UNIT_PER[it.unit]
     : "no list yet";
   var h = '<div class="card" data-id="' + it.id + '" style="padding:2px 14px">';
-  h += '<button class="slim" data-act="toggle" data-id="' + it.id + '">' +
+  h += '<div class="slim" role="button" tabindex="0" data-act="toggle" data-id="' + it.id + '">' +
     '<span class="cname">' + esc(it.name) + "</span>" +
     gauge(v) +
-    '<span class="r num">' + esc(right) + "</span></button>";
+    '<span class="r num">' + esc(right) + "</span></div>";
   h += '<div style="padding-bottom:10px">' + detailHTML(v) + "</div>";
   return h + "</div>";
 }
@@ -1877,8 +1878,39 @@ function renderPlan() {
 
 var SHEET = {};
 
-function openSheet(id) { $(id).classList.add("on"); }
-function closeSheets() { $$(".modal").forEach(function (m) { m.classList.remove("on"); }); }
+/* iOS lets the page behind a fixed-position sheet keep scrolling on its own
+ * during an elastic bounce. The sheet and the nav stay pinned to the
+ * viewport while the content underneath slides — that mismatch is what
+ * shows up as tearing and stray floating elements. Locking the body to the
+ * exact scroll position while a sheet is open, and restoring it on close,
+ * is the standard fix. */
+var SCROLL_LOCK = null;
+function lockScroll() {
+  if (SCROLL_LOCK !== null) return;
+  SCROLL_LOCK = window.scrollY || window.pageYOffset || 0;
+  document.body.style.position = "fixed";
+  document.body.style.top = "-" + SCROLL_LOCK + "px";
+  document.body.style.left = "0";
+  document.body.style.right = "0";
+  document.body.style.width = "100%";
+}
+function unlockScroll() {
+  if (SCROLL_LOCK === null) return;
+  var y = SCROLL_LOCK;
+  SCROLL_LOCK = null;
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.left = "";
+  document.body.style.right = "";
+  document.body.style.width = "";
+  window.scrollTo(0, y);
+}
+
+function openSheet(id) { lockScroll(); $(id).classList.add("on"); }
+function closeSheets() {
+  $$(".modal").forEach(function (m) { m.classList.remove("on"); });
+  unlockScroll();
+}
 
 var EXP_TAGS = [
   ["4 days", 4], ["1 week", 7], ["2 weeks", 14], ["1 month", 30],
@@ -2256,7 +2288,11 @@ document.addEventListener("click", function (e) {
     if (d) {
       d.classList.toggle("on", !!EXPANDED[id]);
       var card = d.closest(".card");
-      if (card) card.classList.toggle("open", !!EXPANDED[id]);
+      if (card) {
+        card.classList.toggle("open", !!EXPANDED[id]);
+        var cv = card.querySelector(".chev");
+        if (cv) cv.textContent = EXPANDED[id] ? "⌃" : "⌄";
+      }
       if (EXPANDED[id]) {
         var inp = $('input[data-act="search"][data-id="' + id + '"]');
         if (inp) setTimeout(function () { inp.focus(); }, 80);
@@ -2331,6 +2367,14 @@ document.addEventListener("click", function (e) {
       watch: [], lots: [], asOf: K.today(), spent: 0, saved: 0, boughtQty: 0, wasted: 0 });
     save(); render(); return;
   }
+});
+
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  var r = e.target.closest && e.target.closest('[role="button"]');
+  if (!r) return;
+  e.preventDefault();
+  r.click();
 });
 
 var searchTimer = null;
