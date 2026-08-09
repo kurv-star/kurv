@@ -1,35 +1,14 @@
 #!/usr/bin/env node
-/*
- * Downloads the full dagligepriser canonical dump and boils it down to a slim
- * catalog the phone can actually load.
- *
- * The expensive part is the price history. Every item carries a list of change
- * points; we replay them into day-weighted segments and derive, once, the three
- * numbers the app needs at runtime:
- *
- *   regular  the price the item sits at on most days over the trailing window
- *            (time-weighted mode, not the year high) -- this is the "what it
- *            costs when nobody is running a promo" number
- *   since    the date the current price took effect
- *   high     the highest price seen in the window, kept for context
- *
- * Output is two files:
- *   meta.json     tiny, fetched on every app open to check freshness
- *   catalog.json  the slim rows, cached on device until meta.built changes
- */
 
 import { writeFile, mkdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 const SOURCE = process.env.SOURCE_URL || "https://dagligepriser.dk/data/latest-canonical.json";
 const OUT_DIR = process.env.OUT_DIR || "dist/data";
-const WINDOW_DAYS = 365; // trailing window for regular-price and high
+const WINDOW_DAYS = 365;
 const MS_DAY = 86400000;
 
-// ---------------------------------------------------------------- date utils
-
 function toDay(iso) {
-  // "2026-07-30" -> integer day number. Cheap and allocation-free enough.
   const y = +iso.slice(0, 4);
   const m = +iso.slice(5, 7);
   const d = +iso.slice(8, 10);
@@ -40,12 +19,6 @@ function fromDay(n) {
   return new Date(n * MS_DAY).toISOString().slice(0, 10);
 }
 
-// ------------------------------------------------------------ price analysis
-
-/**
- * Replay the change points into segments and derive the reference numbers.
- * `history` is the raw priceHistory array (descending by date per upstream).
- */
 function analyse(history, currentPrice, todayDay) {
   const pts = [];
   for (const e of history || []) {
@@ -59,10 +32,10 @@ function analyse(history, currentPrice, todayDay) {
     return { regular: currentPrice, since: null, high: currentPrice, points: 0 };
   }
 
-  pts.sort((a, b) => a[0] - b[0]); // ascending
+  pts.sort((a, b) => a[0] - b[0]); 
 
   const windowStart = todayDay - WINDOW_DAYS;
-  const held = new Map(); // price (2dp string) -> days held inside window
+  const held = new Map();
   let high = -Infinity;
 
   for (let i = 0; i < pts.length; i++) {
@@ -80,10 +53,6 @@ function analyse(history, currentPrice, todayDay) {
     held.set(key, (held.get(key) || 0) + days);
   }
 
-  // Time-weighted mode. Ties break upward: a promo price and a regular price
-  // that happen to have been held equally long should resolve to the higher
-  // one, otherwise a long sale silently redefines "normal" and every future
-  // discount looks like zero.
   let regular = null;
   let bestDays = -1;
   for (const [key, days] of held) {
@@ -105,8 +74,6 @@ function analyse(history, currentPrice, todayDay) {
     points: pts.length,
   };
 }
-
-// -------------------------------------------------------------------- driver
 
 async function main() {
   console.log(`Fetching ${SOURCE} ...`);
@@ -150,8 +117,6 @@ async function main() {
     ]);
   }
 
-  // Sort by store then name: helps gzip a lot, since adjacent names share
-  // prefixes. Costs nothing at runtime because search is a linear scan anyway.
   rows.sort((x, y) => (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : x[1] < y[1] ? -1 : 1));
 
   const built = new Date().toISOString();
