@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -33,12 +33,13 @@
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;overflow-x:hidden}
 body{
   background:var(--paper); color:var(--ink); font-family:var(--sans);
   font-size:15px; line-height:1.45; touch-action:manipulation;
   padding-bottom:calc(70px + env(safe-area-inset-bottom));
-  overscroll-behavior-y:contain;
+  overscroll-behavior-y:contain; overflow-x:hidden;
+  max-width:100vw;
 }
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 button,input,select{font:inherit;color:inherit}
@@ -58,7 +59,7 @@ header{
 .hrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 h1{font-size:17px;font-weight:650;letter-spacing:-.01em}
 .hsub{font-size:12.5px;color:var(--mute);margin-top:2px}
-main{padding:14px 14px 24px;max-width:640px;margin:0 auto}
+main{padding:14px 14px 24px;max-width:640px;margin:0 auto;overflow-x:hidden;width:100%}
 .panel{display:none}
 .panel.on{display:block}
 h2{font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;
@@ -185,12 +186,18 @@ input::placeholder{color:#b8b2a4;font-family:var(--sans)}
 .best{color:var(--deal);font-weight:640}
 
 .res{display:flex;align-items:center;gap:10px;padding:10px 0;
-  border-bottom:1px solid var(--rule2);width:100%;text-align:left}
+  border-bottom:1px solid var(--rule2);width:100%;max-width:100%;text-align:left;
+  overflow:hidden;min-width:0}
 .res:last-child{border-bottom:0}
-.res-m{flex:1;min-width:0}
+.res-m{flex:1;min-width:0;overflow:hidden}
+.res .lo-n{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.res .lo-s{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .plus{border:1px solid var(--rule);border-radius:7px;min-width:38px;min-height:38px;
-  display:flex;align-items:center;justify-content:center;font-size:17px;flex:none}
+  display:flex;align-items:center;justify-content:center;font-size:17px;flex:none;
+  flex-shrink:0}
 .plus.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.detail{overflow:hidden;max-width:100%}
+[id^="res-"]{overflow:hidden;max-width:100%}
 
 /* ------------------------------------------------------------------- lots */
 .lot{display:flex;align-items:center;gap:10px;padding:10px 0;
@@ -334,7 +341,7 @@ nav .pip{position:absolute;top:7px;right:calc(50% - 19px);min-width:15px;height:
     <div class="sub" id="stkSub"></div>
 
     <div class="f"><label id="stkQtyLabel">Amount</label>
-      <input id="stkQty" type="number" min="0" step="any" inputmode="decimal"></div>
+      <input id="stkQty" type="number" min="0" step="0.001" inputmode="decimal"></div>
 
     <div class="f">
       <label>Best before</label>
@@ -825,7 +832,7 @@ var Kurv = (function () {
     return out;
   }
 
-  /** What a unit normally costs: the cheapest regular price you have access to. */
+  /** Cheapest regular unit price on the lookout list (best normal rate available). */
   function typicalUnit(offs) {
     var best = null;
     for (var i = 0; i < offs.length; i++) {
@@ -834,8 +841,21 @@ var Kurv = (function () {
     return best;
   }
 
+  /**
+   * Highest regular unit price on the lookout list. Used for the monthly budget
+   * so the plan is the honest worst case: if you only ever paid the dearest
+   * normal price, this is what the month would cost.
+   */
+  function budgetUnit(offs) {
+    var hi = null;
+    for (var i = 0; i < offs.length; i++) {
+      if (hi === null || offs[i].regularUnit > hi) hi = offs[i].regularUnit;
+    }
+    return hi;
+  }
+
   function budgetOf(item, offs) {
-    var t = typicalUnit(offs);
+    var t = budgetUnit(offs);
     if (t === null || !isFinite(item.perMonth)) return null;
     return item.perMonth * t;
   }
@@ -879,6 +899,7 @@ var Kurv = (function () {
     var cover = coverOf(item, todayDay);
     var cheapest = offs.length ? offs[0] : null;
     var typ = typicalUnit(offs);
+    var budUnit = budgetUnit(offs);
     var reorder = isFinite(item.coverDays) && item.coverDays > 0
       ? item.coverDays : settings.coverDays;
     var threshold = (settings.dealPct || 10) / 100;
@@ -899,7 +920,8 @@ var Kurv = (function () {
       return res;
     }
 
-    var budget = typ === null ? null : item.perMonth * typ;
+    // Monthly budget = plan qty × highest regular unit price on the lookout list.
+    var budget = budUnit === null ? null : item.perMonth * budUnit;
     var spent = Number(item.spent) || 0;
     res.budget = budget;
     res.remaining = budget === null ? null : Math.max(0, budget - spent);
@@ -1027,6 +1049,8 @@ var Kurv = (function () {
       return String(Math.abs(r - Math.round(r)) < 0.05
         ? Math.round(r) : r.toFixed(1).replace(".", ","));
     }
+    // Enough decimals that 100 g (0.1 kg) and 250 ml stay readable.
+    if (v > 0 && v < 1) return v.toFixed(3).replace(/\.?0+$/, "").replace(".", ",");
     return (v >= 10 ? v.toFixed(1) : v.toFixed(2)).replace(".", ",");
   }
 
@@ -1048,7 +1072,7 @@ var Kurv = (function () {
     fold: fold, queryTerms: queryTerms, scoreName: scoreName, SYN: SYN,
     rateOf: rateOf, effExp: effExp, fefo: fefo, run: run, cloneLots: cloneLots,
     stockOf: stockOf, reconcile: reconcile, coverOf: coverOf, openLot: openLot,
-    offers: offers, typicalUnit: typicalUnit, budgetOf: budgetOf,
+    offers: offers, typicalUnit: typicalUnit, budgetUnit: budgetUnit, budgetOf: budgetOf,
     packsBeforeWaste: packsBeforeWaste, decide: decide, coverAfter: coverAfter,
     fmtDays: fmtDays, fmtQty: fmtQty, kr: kr, kr0: kr0,
   };
@@ -1527,12 +1551,12 @@ function renderResults(id) {
     h += '<button class="res" data-act="watch" data-id="' + id + '" data-key="' +
       esc(r.row.key) + '" data-pack="' + (r.pack || "") + '">' +
       '<span class="res-m"><span class="lo-n">' + esc(r.row.name) + "</span>" +
-      '<span class="lo-s" style="display:block">' + esc(storeLabel(r.row.store)) + " · " +
+      '<span class="lo-s">' + esc(storeLabel(r.row.store)) + " · " +
       K.kr(r.row.price) + " kr" +
       (r.pack ? " · " + K.fmtQty(r.pack, it.unit) + " " + K.UNIT_LABEL[it.unit] +
-                ' · <b class="num">' + K.kr(r.unitPrice) + "</b> kr/" + K.UNIT_PER[it.unit]
-              : ' · <span style="color:var(--need)">size unclear, set it after adding</span>') +
-      (r.off >= 0.03 ? ' · <span class="best">−' + Math.round(r.off * 100) + "%</span>" : "") +
+                ' · ' + K.kr(r.unitPrice) + " kr/" + K.UNIT_PER[it.unit]
+              : ' · size unclear') +
+      (r.off >= 0.03 ? ' · −' + Math.round(r.off * 100) + "%" : "") +
       "</span></span>" +
       '<span class="plus' + (on ? " on" : "") + '">' + (on ? "✓" : "+") + "</span></button>";
   });
@@ -1684,8 +1708,9 @@ function monthTotals() {
     if (b !== null) budget += b;
     spent += it.spent || 0;
     saved += it.saved || 0;
-    var typ = K.typicalUnit(offs);
-    if (typ !== null) left += Math.max(0, (it.perMonth || 0) - (it.boughtQty || 0)) * typ;
+    // Remaining plan qty at the highest regular unit price (honest worst case).
+    var hi = K.budgetUnit(offs);
+    if (hi !== null) left += Math.max(0, (it.perMonth || 0) - (it.boughtQty || 0)) * hi;
   });
   return { budget: budget, spent: spent, saved: saved, left: left, projected: spent + left };
 }
@@ -1704,8 +1729,8 @@ function renderMoney() {
   h += '<div class="card"><div class="hsub" style="margin:0 0 6px">Saved so far in ' +
     esc(monthName(S.month)) + "</div>" +
     '<div class="big" style="color:var(--deal)">' + K.kr0(m.saved) + " <small>kr</small></div>" +
-    '<div class="hint" style="margin-top:8px">The difference between what you paid and what ' +
-    "these things normally cost, added up across every purchase.</div></div>";
+    '<div class="hint" style="margin-top:8px">Each purchase: usual pack price minus what you ' +
+    "paid. A 40&nbsp;kr pack bought for 20&nbsp;kr saves 20&nbsp;kr. Summed over the month.</div></div>";
 
   var pct = m.budget > 0 ? Math.min(100, (m.spent / m.budget) * 100) : 0;
   h += '<div class="card"><div class="kv"><span>Spent</span><b class="num">' +
@@ -1718,8 +1743,9 @@ function renderMoney() {
     K.kr0(m.left) + " kr</b></div>" +
     '<div class="kv"><span>Month should land near</span><b class="num">' +
     K.kr0(m.projected) + " kr</b></div>" +
-    '<div class="hint" style="margin-top:8px">The projection assumes nothing else goes ' +
-    "on offer, so it is the honest worst case. Every offer you take pulls it down.</div></div>";
+    '<div class="hint" style="margin-top:8px">Budget = monthly plan qty × highest regular ' +
+    "unit price on each lookout list. Projection assumes the rest is bought at that rate; " +
+    "every discount you take pulls the solid line down.</div></div>";
 
   h += "<h2>Through the month</h2>";
   h += '<div class="card">' + chartSVG(m, b) +
@@ -1993,9 +2019,13 @@ function buyPreview() {
 
   var qty = packs * c.o.pack;
   var total = packs * price;
-  var typ = c.v.d.typical;
-  var regularUnit = (c.o.regularUnit > 0 ? c.o.regularUnit : typ) || 0;
-  var saved = regularUnit > 0 ? Math.max(0, (regularUnit - price / c.o.pack) * qty) : 0;
+  // Savings = (usual pack price − what you pay) × packs. Prefer the product's
+  // own regular; fall back to typical unit × pack size.
+  var usualPack = (c.o.regular > 0 && c.o.regular > price)
+    ? c.o.regular
+    : (c.o.regularUnit > 0 ? c.o.regularUnit * c.o.pack
+      : (c.v.d.typical > 0 ? c.v.d.typical * c.o.pack : 0));
+  var saved = usualPack > 0 ? Math.max(0, (usualPack - price) * packs) : 0;
 
   // Simulate exactly what this purchase does, including whether any of it spoils.
   var lots = K.cloneLots(it.lots);
@@ -2064,15 +2094,25 @@ function confirmBuy() {
 
 /* -------------------------------------------------------------- stock sheet */
 
+/** Stock sheet accepts grams for kg items and ml for litres, so 100 g is easy. */
+function stockInputScale(unit) {
+  if (unit === "kg") return { factor: 0.001, noun: "grams", step: "1" };
+  if (unit === "L") return { factor: 0.001, noun: "ml", step: "1" };
+  return { factor: 1, noun: K.UNIT_NOUN[unit] || unit, step: "1" };
+}
+
 function openStock(id) {
   var it = byId(id);
   if (!it) return;
-  SHEET = { kind: "stock", id: id, exp: it.shelfLife || 30 };
+  var sc = stockInputScale(it.unit);
+  SHEET = { kind: "stock", id: id, exp: it.shelfLife || 30, scale: sc.factor };
   $("#stkTitle").textContent = "Add " + it.name.toLowerCase();
   $("#stkSub").textContent = "Whatever is already in the cupboard. No price needed — " +
     "this does not count against the month's budget.";
-  $("#stkQtyLabel").textContent = "How much (" + K.UNIT_NOUN[it.unit] + ")";
+  $("#stkQtyLabel").textContent = "How much (" + sc.noun + ")";
   $("#stkQty").value = "";
+  $("#stkQty").setAttribute("step", sc.step);
+  $("#stkQty").setAttribute("min", "0");
   $("#stkTags").innerHTML = tagsHTML(SHEET.exp);
   $("#stkExp").value = K.isoFromDay(K.today() + SHEET.exp);
   stockPreview();
@@ -2083,7 +2123,8 @@ function openStock(id) {
 function stockPreview() {
   var it = byId(SHEET.id);
   if (!it) return;
-  var q = num($("#stkQty").value);
+  var raw = num($("#stkQty").value);
+  var q = isFinite(raw) ? raw * (SHEET.scale || 1) : NaN;
   var expDay = K.dayFromISO($("#stkExp").value);
   if (!isFinite(q) || q <= 0) {
     $("#stkPrev").innerHTML = '<div class="hint" style="margin:0">Enter an amount to see ' +
