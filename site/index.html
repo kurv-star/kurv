@@ -145,9 +145,10 @@ h2:first-child{margin-top:2px}
 
 .slim{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
   padding:11px 2px;min-height:var(--tap)}
-.slim .cname{flex:none;min-width:82px}
-.slim .track{flex:1;height:7px}
-.slim .r{font-size:12px;color:var(--mute);flex:none;text-align:right;min-width:92px}
+.slim .cname{flex:none;min-width:72px;max-width:38%}
+.slim .track{flex:1;height:7px;min-width:48px}
+.slim .r{font-size:12px;color:var(--mute);flex:none;text-align:right;min-width:88px;
+  white-space:nowrap}
 
 /* ------------------------------------------------------------------ fields */
 .f{margin-top:11px}
@@ -170,13 +171,14 @@ input::placeholder{color:#b8b2a4;font-family:var(--sans)}
 /* ------------------------------------------------------------------ detail */
 .detail{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--rule2)}
 .detail.on{display:block}
-.lo{display:flex;align-items:center;gap:10px;padding:9px 0;
-  border-bottom:1px solid var(--rule2)}
+.lo{display:flex;align-items:center;gap:8px;padding:10px 0;
+  border-bottom:1px solid var(--rule2);min-width:0}
 .lo:last-child{border-bottom:0}
-.lo-m{flex:1;min-width:0}
+.lo-m{flex:1;min-width:0;overflow:hidden}
 .lo-n{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lo-s{font-size:11.5px;color:var(--faint);margin-top:2px}
-.lo-p{text-align:right;flex:none}
+.lo-s{font-size:11.5px;color:var(--faint);margin-top:2px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.lo-p{text-align:right;flex:none;max-width:72px}
 .lo-u{font-size:13.5px;font-weight:640}
 .lo-w{font-size:11px;color:var(--faint)}
 .x{color:var(--faint);font-size:19px;line-height:1;padding:8px;flex:none;min-width:36px}
@@ -192,8 +194,9 @@ input::placeholder{color:#b8b2a4;font-family:var(--sans)}
 
 /* ------------------------------------------------------------------- lots */
 .lot{display:flex;align-items:center;gap:10px;padding:10px 0;
-  border-bottom:1px solid var(--rule2)}
+  border-bottom:1px solid var(--rule2);cursor:pointer}
 .lot:last-child{border-bottom:0}
+.lot:active{opacity:.75}
 .lot-m{flex:1;min-width:0}
 .lot-q{font-size:14px;font-weight:620}
 .lot-s{font-size:11.5px;color:var(--mute);margin-top:2px}
@@ -746,11 +749,9 @@ var Kurv = (function () {
       item.asOf = todayDay;
       item.wasted = (item.wasted || 0) + r.wasted;
     }
-    if (rateOf(item) > 0) {
-      var front = fefo(item.lots, item.openLife || 0)
-        .filter(function (l) { return l.qty > EPS; })[0];
-      if (front && (front.open === null || front.open === undefined)) front.open = todayDay;
-    }
+    // Do not force-open the front pack. Opening is set when you actually start
+    // eating it (run), or when you mark it open on the Stock tab. That way a
+    // sealed pack keeps its full unopened shelf life until you open it.
     return r;
   }
 
@@ -876,14 +877,15 @@ var Kurv = (function () {
     var rate = rateOf(item);
     var stock = stockOf(item);
     var cover = coverOf(item, todayDay);
-    var best = offs.length ? offs[0] : null;
+    var cheapest = offs.length ? offs[0] : null;
     var typ = typicalUnit(offs);
     var reorder = isFinite(item.coverDays) && item.coverDays > 0
       ? item.coverDays : settings.coverDays;
+    var threshold = (settings.dealPct || 10) / 100;
 
     var res = {
       state: "ok", stock: stock, cover: cover, rate: rate,
-      best: best, typical: typ, packs: 0, spend: 0, saving: 0,
+      best: cheapest, typical: typ, packs: 0, spend: 0, saving: 0,
       budget: null, remaining: null, reason: "", capped: "",
       // What today's cupboard loses to dates over the next fortnight, at the
       // plan rate. This is the number the open-pack countdown exists for.
@@ -891,7 +893,7 @@ var Kurv = (function () {
                     todayDay, todayDay + 14).wasted,
     };
     if (rate <= 0) { res.state = "off"; res.reason = "No monthly amount set yet."; return res; }
-    if (!best) {
+    if (!cheapest) {
       res.state = stock <= EPS ? "out" : "ok";
       res.reason = "Nothing on the lookout list yet.";
       return res;
@@ -902,9 +904,26 @@ var Kurv = (function () {
     res.budget = budget;
     res.remaining = budget === null ? null : Math.max(0, budget - spent);
 
-    // Is a unit of this cheaper right now than it normally is?
-    var offPct = typ && typ > 0 ? (typ - best.unitPrice) / typ : 0;
-    var isDeal = offPct >= settings.dealPct / 100;
+    // A deal is real when either (a) the cheapest unit is meaningfully below the
+    // typical unit price across the lookout list, or (b) any watched product is
+    // discounted against its own regular. Prefer the cheapest true-deal offer
+    // for opportunity buys so a permanent low-price item does not hide a sale.
+    var bestDeal = null;
+    var i, o, ownOff;
+    for (i = 0; i < offs.length; i++) {
+      o = offs[i];
+      ownOff = o.regularUnit > 0 ? (o.regularUnit - o.unitPrice) / o.regularUnit : 0;
+      if (ownOff >= threshold) {
+        if (!bestDeal || o.unitPrice < bestDeal.unitPrice) bestDeal = o;
+      }
+    }
+    var offVsTyp = typ && typ > 0 ? (typ - cheapest.unitPrice) / typ : 0;
+    var isDeal = offVsTyp >= threshold || !!bestDeal;
+    var best = (isDeal && bestDeal) ? bestDeal : cheapest;
+    var offPct = best.regularUnit > 0
+      ? Math.max(0, (best.regularUnit - best.unitPrice) / best.regularUnit)
+      : Math.max(0, offVsTyp);
+    res.best = best;
     res.off = offPct;
 
     var low = stock <= EPS || cover <= reorder;
@@ -943,13 +962,15 @@ var Kurv = (function () {
       if (caps[0][0] === n) capped = caps[0][1];
     }
 
+    var unitSaving = Math.max(0, (best.regularUnit || typ || 0) - best.unitPrice);
+
     if (n < 1) {
       // Nothing fits cleanly. If we're out anyway, one pack still beats none.
       if (low) {
         res.state = stock <= EPS ? "out" : "need";
         res.packs = 1;
         res.spend = best.price;
-        res.saving = Math.max(0, (typ - best.unitPrice) * best.pack);
+        res.saving = unitSaving * best.pack;
         res.capped = byShelf < 1 ? "shelf life" : byBudget < 1 ? "budget" : "stock ceiling";
         res.reason = byShelf < 1
           ? "On offer, but a whole pack would go off before you finish it — take one."
@@ -965,12 +986,12 @@ var Kurv = (function () {
     res.state = "deal";
     res.packs = n;
     res.spend = n * best.price;
-    res.saving = (typ - best.unitPrice) * best.pack * n;
+    res.saving = unitSaving * best.pack * n;
     res.capped = capped;
     var after = coverAfter(item, best, n, shelf, todayDay);
     res.coverAfter = after;
     res.reason =
-      Math.round(offPct * 100) + "% under what you normally pay. " +
+      Math.round(offPct * 100) + "% under the usual price. " +
       n + (n === 1 ? " pack" : " packs") + " takes you to " + fmtDays(after) +
       (capped ? ", and that is all " + capped + " allows." : ".");
     return res;
@@ -1375,8 +1396,9 @@ function cardHTML(v) {
 
   h += '<div class="gauge">' + gauge(v, d.coverAfter) +
     '<div class="gsub"><span><b class="num">' + K.fmtQty(d.stock, it.unit) + "</b> " +
-    K.UNIT_LABEL[it.unit] + " left</span><span>" +
-    (d.cover <= 0 ? "gone" : "lasts " + K.fmtDays(d.cover)) + "</span></div></div>";
+    K.UNIT_LABEL[it.unit] + " left</span><span><b class=\"num\">" +
+    (d.cover <= 0 ? "gone" : K.fmtDays(d.cover)) + "</b>" +
+    (d.cover > 0 ? " left" : "") + "</span></div></div>";
 
   if (d.best) h += shelfTag(d.best, it.unit);
   if (d.reason) h += '<div class="why">' + esc(d.reason) + "</div>";
@@ -1413,9 +1435,8 @@ function cardHTML(v) {
 
 function slimHTML(v) {
   var it = v.it, d = v.d;
-  var right = d.best
-    ? K.kr(d.best.unitPrice) + " kr/" + K.UNIT_PER[it.unit]
-    : "no list yet";
+  var days = d.cover <= 0 ? "gone" : K.fmtDays(d.cover);
+  var right = K.fmtQty(d.stock, it.unit) + " · " + days;
   var h = '<div class="card" data-id="' + it.id + '" style="padding:2px 14px">';
   h += '<div class="slim" role="button" tabindex="0" data-act="toggle" data-id="' + it.id + '">' +
     '<span class="cname">' + esc(it.name) + "</span>" +
@@ -1468,12 +1489,10 @@ function lookoutHTML(v) {
       '<div class="lo-m"><div class="lo-n">' + (i === 0 ? '<b>' : "") + esc(o.name) +
       (i === 0 ? "</b>" : "") + "</div>" +
       '<div class="lo-s">' + esc(storeLabel(o.store)) + " · " + K.kr(o.price) + " kr" +
-      (o.live ? "" : " · price not in this list") +
+      " · " + K.fmtQty(o.pack, it.unit) + " " + K.UNIT_LABEL[it.unit] +
+      (o.live ? "" : " · offline") +
       (o.off >= 0.03 ? ' · <span class="best">−' + Math.round(o.off * 100) + "%</span>" : "") +
       "</div></div>" +
-      '<input class="packin num" type="number" step="any" min="0" value="' + o.pack +
-      '" data-act="pack" data-id="' + it.id + '" data-key="' + esc(o.key) +
-      '" aria-label="Pack size">' +
       '<div class="lo-p"><div class="lo-u num' + (i === 0 ? " best" : "") + '">' +
       K.kr(o.unitPrice) + '</div><div class="lo-w">kr/' + K.UNIT_PER[it.unit] + "</div></div>" +
       '<button class="x" data-act="unwatch" data-id="' + it.id + '" data-key="' + esc(o.key) +
@@ -1576,27 +1595,30 @@ function renderStock() {
   var views = S.items.map(viewOf);
   views.sort(function (a, b) { return a.d.cover - b.d.cover; });
 
-  var h = '<div class="hint" style="margin:0 0 12px">The pack expiring soonest counts as ' +
-    "the open one, so its shorter once-opened date applies. Everything behind it keeps its " +
-    "full date until its turn.</div>";
+  var h = '<div class="hint" style="margin:0 0 12px">Tap a pack to mark it open or sealed. ' +
+    "An open pack uses the shorter once-opened date; sealed packs keep their full date. " +
+    "Opened packs are finished first.</div>";
 
   views.forEach(function (v) {
     var it = v.it;
     h += '<div class="card"><div class="chead"><div class="cname">' + esc(it.name) + "</div>" +
       '<span class="num" style="font-size:13px;color:var(--mute)">' +
-      K.fmtQty(v.d.stock, it.unit) + " " + K.UNIT_LABEL[it.unit] + "</span></div>";
+      K.fmtQty(v.d.stock, it.unit) + " " + K.UNIT_LABEL[it.unit] +
+      " · " + (v.d.cover <= 0 ? "gone" : K.fmtDays(v.d.cover)) + "</span></div>";
 
     var order = K.fefo(it.lots, it.openLife || 0).filter(function (l) { return l.qty > 1e-9; });
-    // Nine identical packs of pasta are one fact, not nine rows.
+    // Nine identical sealed packs of pasta are one fact, not nine rows.
+    // Open packs stay separate so you can toggle them one at a time.
     var groups = [];
     order.forEach(function (l, i) {
       var e = K.effExp(l, it.openLife || 0);
+      var isOpen = l.open !== null && l.open !== undefined;
       var g = groups[groups.length - 1];
-      var sameAsLast = g && i > 0 && g.exp === e && g.product === (l.product || "") &&
-        g.qtyEach === l.qty && !g.isOpen;
+      var sameAsLast = g && i > 0 && !isOpen && !g.isOpen && g.exp === e &&
+        g.product === (l.product || "") && g.qtyEach === l.qty;
       if (sameAsLast) { g.n++; g.ids.push(l.id); g.total += l.qty; }
       else groups.push({ exp: e, product: l.product || "", qtyEach: l.qty, total: l.qty,
-        n: 1, ids: [l.id], isOpen: i === 0, lot: l });
+        n: 1, ids: [l.id], isOpen: isOpen, lot: l });
     });
 
     if (!order.length) {
@@ -1607,14 +1629,16 @@ function renderStock() {
         var short = left !== null && left <= 3;
         var cut = g.isOpen && it.openLife > 0 && g.lot.open !== null &&
           g.lot.exp > g.lot.open + it.openLife;
-        h += '<div class="lot"><div class="lot-m">' +
+        h += '<div class="lot" data-act="toggleOpen" data-id="' + it.id +
+          '" data-lot="' + esc(g.ids[0]) + '" role="button" tabindex="0">' +
+          '<div class="lot-m">' +
           '<div class="lot-q num">' + (g.isOpen ? '<i class="dot"></i>' : "") +
           (g.n > 1 ? g.n + " × " : "") + K.fmtQty(g.qtyEach, it.unit) + " " +
           K.UNIT_LABEL[it.unit] +
           (g.n > 1 ? ' <span style="color:var(--faint);font-weight:400">= ' +
             K.fmtQty(g.total, it.unit) + "</span>" : "") + "</div>" +
           '<div class="lot-s' + (short ? " soon" : "") + '">' +
-          (g.isOpen ? "Open · " : "") +
+          (g.isOpen ? "Open · " : "Sealed · ") +
           (g.exp === null ? "no date" : "good to " + K.dayLabel(g.exp) +
             (left !== null ? " · " + (left <= 0 ? "today" : K.fmtDays(left)) : "")) +
           (cut ? " (cut short by opening)" : "") +
@@ -1970,7 +1994,8 @@ function buyPreview() {
   var qty = packs * c.o.pack;
   var total = packs * price;
   var typ = c.v.d.typical;
-  var saved = typ ? Math.max(0, (typ - price / c.o.pack) * qty) : 0;
+  var regularUnit = (c.o.regularUnit > 0 ? c.o.regularUnit : typ) || 0;
+  var saved = regularUnit > 0 ? Math.max(0, (regularUnit - price / c.o.pack) * qty) : 0;
 
   // Simulate exactly what this purchase does, including whether any of it spoils.
   var lots = K.cloneLots(it.lots);
@@ -2342,6 +2367,25 @@ document.addEventListener("click", function (e) {
     var kill = {};
     String(b.dataset.lot).split(",").forEach(function (x) { kill[x] = true; });
     it3.lots = it3.lots.filter(function (l) { return !kill[l.id]; });
+    save(); render(); return;
+  }
+
+  if (act === "toggleOpen") {
+    var it4 = byId(id);
+    if (!it4) return;
+    var lotId = b.dataset.lot;
+    var target = it4.lots.filter(function (l) { return l.id === lotId; })[0];
+    if (!target) return;
+    var wasOpen = target.open !== null && target.open !== undefined;
+    if (wasOpen) {
+      target.open = null;
+      toast("Marked sealed.");
+    } else {
+      // Only one pack should be open at a time for this item.
+      it4.lots.forEach(function (l) { l.open = null; });
+      target.open = K.today();
+      toast("Marked open.");
+    }
     save(); render(); return;
   }
 
