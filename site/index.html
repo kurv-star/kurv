@@ -768,7 +768,7 @@ var Kurv = (function () {
 
   function cloneLots(lots) {
     return lots.map(function (l) {
-      return { id: l.id, qty: l.qty, exp: l.exp, open: l.open === undefined ? null : l.open,
+      return { qty: l.qty, exp: l.exp, open: l.open === undefined ? null : l.open,
                bought: l.bought, product: l.product };
     });
   }
@@ -927,17 +927,18 @@ var Kurv = (function () {
     // A real offer: take as much as budget and shelf life allow.
     var shelf = Number(item.shelfLife) > 0 ? Number(item.shelfLife) : 30;
     var byShelf = packsBeforeWaste(item, best, shelf, todayDay, 40);
+    var byBudget = res.remaining === null ? 40
+      : Math.floor((res.remaining + 1e-6) / best.price);
     var maxCover = settings.maxCover > 0 ? settings.maxCover : 120;
     var byCover = Math.max(0, Math.floor((rate * maxCover - stock) / best.pack));
 
-    // Budget should not prevent taking advantage of deals (Fix for Opportunity buying)
-    var n = Math.min(byShelf, byCover);
-
+    var n = Math.min(byShelf, byBudget, byCover);
     // Say which of the three actually held it back, in the order that matters
     // most to explain. If nothing bound, say nothing.
     var capped = "";
     if (n < 40) {
-      var caps = [[byShelf, "shelf life"], [byCover, "your stock ceiling"]];
+      var caps = [[byShelf, "shelf life"], [byBudget, "the budget"],
+                  [byCover, "your stock ceiling"]];
       caps.sort(function (a, b) { return a[0] - b[0]; });
       if (caps[0][0] === n) capped = caps[0][1];
     }
@@ -949,14 +950,14 @@ var Kurv = (function () {
         res.packs = 1;
         res.spend = best.price;
         res.saving = Math.max(0, (typ - best.unitPrice) * best.pack);
-        res.capped = byShelf < 1 ? "shelf life" : "stock ceiling";
+        res.capped = byShelf < 1 ? "shelf life" : byBudget < 1 ? "budget" : "stock ceiling";
         res.reason = byShelf < 1
           ? "On offer, but a whole pack would go off before you finish it — take one."
-          : "On offer, but your stock ceiling is reached — take one anyway, you're low.";
+          : "On offer, but the budget is spent — take one anyway, you're low.";
         return res;
       }
       res.reason = "On offer, but there is no room for it — " + (byShelf < 1
-        ? "a pack would spoil before you got through it." : "your stock ceiling is reached.");
+        ? "a pack would spoil before you got through it." : "this month's budget is spent.");
       res.state = "ok";
       return res;
     }
@@ -1419,8 +1420,6 @@ function slimHTML(v) {
   h += '<div class="slim" role="button" tabindex="0" data-act="toggle" data-id="' + it.id + '">' +
     '<span class="cname">' + esc(it.name) + "</span>" +
     gauge(v) +
-    '<span class="num" style="font-size:12px;color:var(--mute);margin-right:8px;white-space:nowrap;">' +
-    K.fmtQty(d.stock, it.unit) + ' ' + K.UNIT_LABEL[it.unit] + ' (' + K.fmtDays(d.cover) + ')</span>' +
     '<span class="r num">' + esc(right) + "</span></div>";
   h += '<div style="padding-bottom:10px">' + detailHTML(v) + "</div>";
   return h + "</div>";
@@ -1468,13 +1467,16 @@ function lookoutHTML(v) {
     h += '<div class="lo">' +
       '<div class="lo-m"><div class="lo-n">' + (i === 0 ? '<b>' : "") + esc(o.name) +
       (i === 0 ? "</b>" : "") + "</div>" +
-      '<div class="lo-s">' + esc(storeLabel(o.store)) + " · " + K.kr(o.price) + " kr · " + K.fmtQty(o.pack, it.unit) + " " + K.UNIT_LABEL[it.unit] +
+      '<div class="lo-s">' + esc(storeLabel(o.store)) + " · " + K.kr(o.price) + " kr" +
       (o.live ? "" : " · price not in this list") +
       (o.off >= 0.03 ? ' · <span class="best">−' + Math.round(o.off * 100) + "%</span>" : "") +
       "</div></div>" +
+      '<input class="packin num" type="number" step="any" min="0" value="' + o.pack +
+      '" data-act="pack" data-id="' + it.id + '" data-key="' + esc(o.key) +
+      '" aria-label="Pack size">' +
       '<div class="lo-p"><div class="lo-u num' + (i === 0 ? " best" : "") + '">' +
       K.kr(o.unitPrice) + '</div><div class="lo-w">kr/' + K.UNIT_PER[it.unit] + "</div></div>" +
-      '<button class="x" style="font-size: 24px; padding: 4px;" data-act="unwatch" data-id="' + it.id + '" data-key="' + esc(o.key) +
+      '<button class="x" data-act="unwatch" data-id="' + it.id + '" data-key="' + esc(o.key) +
       '" aria-label="Remove">×</button></div>';
   });
   return h;
@@ -1564,18 +1566,6 @@ function starterHTML() {
 
 /* ================================================================== STOCK */
 
-window.toggleLotOpen = function(itId, lotId) {
-  var it = byId(itId);
-  if (!it) return;
-  var lot = it.lots.filter(function(l) { return l.id === lotId; })[0];
-  if (!lot) return;
-  lot.open = (lot.open === null || lot.open === undefined) ? K.today() : null;
-  K.reconcile(it, K.today());
-  save();
-  renderStock();
-  renderToday();
-};
-
 function renderStock() {
   var body = $("#stockBody");
   if (!S.items.length) {
@@ -1617,7 +1607,7 @@ function renderStock() {
         var short = left !== null && left <= 3;
         var cut = g.isOpen && it.openLife > 0 && g.lot.open !== null &&
           g.lot.exp > g.lot.open + it.openLife;
-        h += '<div class="lot"><div class="lot-m" style="cursor:pointer;" onclick="window.toggleLotOpen(\'' + it.id + '\', \'' + g.ids[0] + '\')">' +
+        h += '<div class="lot"><div class="lot-m">' +
           '<div class="lot-q num">' + (g.isOpen ? '<i class="dot"></i>' : "") +
           (g.n > 1 ? g.n + " × " : "") + K.fmtQty(g.qtyEach, it.unit) + " " +
           K.UNIT_LABEL[it.unit] +
@@ -1906,14 +1896,581 @@ function lockScroll() {
 }
 function unlockScroll() {
   if (SCROLL_LOCK === null) return;
+  var y = SCROLL_LOCK;
+  SCROLL_LOCK = null;
   document.body.style.position = "";
   document.body.style.top = "";
   document.body.style.left = "";
   document.body.style.right = "";
   document.body.style.width = "";
-  window.scrollTo(0, SCROLL_LOCK);
-  SCROLL_LOCK = null;
+  window.scrollTo(0, y);
 }
+
+function openSheet(id) { lockScroll(); $(id).classList.add("on"); }
+function closeSheets() {
+  $$(".modal").forEach(function (m) { m.classList.remove("on"); });
+  unlockScroll();
+}
+
+var EXP_TAGS = [
+  ["4 days", 4], ["1 week", 7], ["2 weeks", 14], ["1 month", 30],
+  ["3 months", 90], ["6 months", 182], ["1 year", 365],
+];
+
+function tagsHTML(sel) {
+  return EXP_TAGS.map(function (t) {
+    return '<button class="tg' + (sel === t[1] ? " on" : "") + '" data-days="' + t[1] +
+      '">' + t[0] + "</button>";
+  }).join("");
+}
+
+/* ---------------------------------------------------------------- buy sheet */
+
+function openBuy(id) {
+  var it = byId(id);
+  if (!it) return;
+  var v = viewOf(it);
+  if (!v.offs.length) { toast("Add a product to the lookout list first."); return; }
+
+  SHEET = { kind: "buy", id: id, exp: it.shelfLife || 30 };
+  $("#buyTitle").textContent = it.name;
+  $("#buySub").textContent = K.fmtQty(v.d.stock, it.unit) + " " + K.UNIT_LABEL[it.unit] +
+    " on hand · " + (v.d.cover <= 0 ? "none left" : "lasts " + K.fmtDays(v.d.cover));
+
+  $("#buyProduct").innerHTML = v.offs.map(function (o, i) {
+    return '<option value="' + esc(o.key) + '"' + (i === 0 ? " selected" : "") + ">" +
+      esc(storeLabel(o.store)) + " · " + esc(o.name) + " · " + K.kr(o.price) + " kr</option>";
+  }).join("");
+
+  $("#buyPacks").value = Math.max(1, v.d.packs || 1);
+  $("#buyPrice").value = v.offs[0].price.toFixed(2);
+  $("#buyTags").innerHTML = tagsHTML(SHEET.exp);
+  $("#buyExp").value = K.isoFromDay(K.today() + SHEET.exp);
+  buyPreview();
+  openSheet("#mBuy");
+}
+
+function currentOffer() {
+  var it = byId(SHEET.id);
+  var v = viewOf(it);
+  var key = $("#buyProduct").value;
+  var o = v.offs.filter(function (x) { return x.key === key; })[0] || v.offs[0];
+  return { it: it, v: v, o: o };
+}
+
+function buyPreview() {
+  var c = currentOffer();
+  if (!c.o) return;
+  var it = c.it;
+  var packs = Math.max(1, Math.round(num($("#buyPacks").value)) || 1);
+  var price = num($("#buyPrice").value);
+  if (!isFinite(price) || price < 0) price = c.o.price;
+  var expDay = K.dayFromISO($("#buyExp").value) || K.today() + (it.shelfLife || 30);
+
+  var qty = packs * c.o.pack;
+  var total = packs * price;
+  var typ = c.v.d.typical;
+  var saved = typ ? Math.max(0, (typ - price / c.o.pack) * qty) : 0;
+
+  // Simulate exactly what this purchase does, including whether any of it spoils.
+  var lots = K.cloneLots(it.lots);
+  for (var i = 0; i < packs; i++)
+    lots.push({ qty: c.o.pack, exp: expDay, open: null, bought: K.today(), product: c.o.name });
+  var t = K.today();
+  var sim = K.run(K.cloneLots(lots), K.rateOf(it), it.openLife || 0, t, t + 400,
+    { stopWhenEmpty: true });
+  var cover = (sim.runOut === null ? t + 400 : sim.runOut) - t;
+
+  SHEET.preview = { packs: packs, price: price, qty: qty, total: total, saved: saved,
+    expDay: expDay, offer: c.o, cover: cover, wasted: sim.wasted };
+
+  var budgetLeft = c.v.d.remaining;
+  var h = '<div class="kv"><span>Adds</span><b class="num">' + K.fmtQty(qty, it.unit) + " " +
+    K.UNIT_LABEL[it.unit] + "</b></div>" +
+    '<div class="kv"><span>Lasts until</span><b class="num">' +
+    K.dayLabel(t + Math.round(cover)) + " · " + K.fmtDays(cover) + "</b></div>" +
+    '<div class="kv"><span>Costs</span><b class="num">' + K.kr(total) + " kr</b></div>";
+  if (saved > 0.5) {
+    h += '<div class="kv"><span>Cheaper than usual by</span><b class="num save">' +
+      K.kr(saved) + " kr</b></div>";
+  }
+  if (budgetLeft !== null) {
+    var over = total > budgetLeft + 1e-6;
+    h += '<div class="kv"><span>' + (over ? "Over this month's " + esc(it.name.toLowerCase()) +
+      " budget by" : "Left in the budget after") + "</span><b class=\"num\"" +
+      (over ? ' style="color:var(--gone)"' : "") + ">" +
+      K.kr(Math.abs(budgetLeft - total)) + " kr</b></div>";
+  }
+  if (sim.wasted > 0.001) {
+    h += '<div class="warn" style="margin-top:9px">About ' + K.fmtQty(sim.wasted, it.unit) +
+      " " + K.UNIT_LABEL[it.unit] + " would pass its date before you get to it.</div>";
+  }
+  $("#buyPrev").innerHTML = h;
+}
+
+function confirmBuy() {
+  var p = SHEET.preview;
+  var it = byId(SHEET.id);
+  if (!p || !it) return;
+  var t = K.today();
+
+  for (var i = 0; i < p.packs; i++) {
+    it.lots.push({ id: uid(), qty: p.offer.pack, exp: p.expDay, open: null,
+      bought: t, product: p.offer.name, paid: p.price });
+  }
+  it.spent = (it.spent || 0) + p.total;
+  it.saved = (it.saved || 0) + p.saved;
+  it.boughtQty = (it.boughtQty || 0) + p.qty;
+  it.asOf = t;
+
+  S.receipts.push({
+    ts: Date.now(), day: t, itemId: it.id, item: it.name,
+    store: p.offer.store, product: p.offer.name, packs: p.packs,
+    packQty: p.offer.pack, unit: it.unit, qty: p.qty,
+    price: p.price, total: p.total, saved: p.saved,
+  });
+  if (S.receipts.length > 400) S.receipts = S.receipts.slice(-400);
+
+  save();
+  closeSheets();
+  toast("Logged " + p.packs + (p.packs === 1 ? " pack" : " packs") + " of " + it.name + ".");
+  render();
+}
+
+/* -------------------------------------------------------------- stock sheet */
+
+function openStock(id) {
+  var it = byId(id);
+  if (!it) return;
+  SHEET = { kind: "stock", id: id, exp: it.shelfLife || 30 };
+  $("#stkTitle").textContent = "Add " + it.name.toLowerCase();
+  $("#stkSub").textContent = "Whatever is already in the cupboard. No price needed — " +
+    "this does not count against the month's budget.";
+  $("#stkQtyLabel").textContent = "How much (" + K.UNIT_NOUN[it.unit] + ")";
+  $("#stkQty").value = "";
+  $("#stkTags").innerHTML = tagsHTML(SHEET.exp);
+  $("#stkExp").value = K.isoFromDay(K.today() + SHEET.exp);
+  stockPreview();
+  openSheet("#mStock");
+  setTimeout(function () { $("#stkQty").focus(); }, 60);
+}
+
+function stockPreview() {
+  var it = byId(SHEET.id);
+  if (!it) return;
+  var q = num($("#stkQty").value);
+  var expDay = K.dayFromISO($("#stkExp").value);
+  if (!isFinite(q) || q <= 0) {
+    $("#stkPrev").innerHTML = '<div class="hint" style="margin:0">Enter an amount to see ' +
+      "how long it covers you.</div>";
+    return;
+  }
+  var t = K.today();
+  var lots = K.cloneLots(it.lots);
+  lots.push({ qty: q, exp: expDay, open: null, bought: t, product: "" });
+  var sim = K.run(K.cloneLots(lots), K.rateOf(it), it.openLife || 0, t, t + 400,
+    { stopWhenEmpty: true });
+  var cover = (sim.runOut === null ? t + 400 : sim.runOut) - t;
+  var h = '<div class="kv"><span>Stock becomes</span><b class="num">' +
+    K.fmtQty(K.stockOf(it) + q, it.unit) + " " + K.UNIT_LABEL[it.unit] + "</b></div>" +
+    '<div class="kv"><span>Covers you</span><b class="num">' + K.fmtDays(cover) + "</b></div>";
+  if (sim.wasted > 0.001) {
+    h += '<div class="warn" style="margin-top:9px">About ' + K.fmtQty(sim.wasted, it.unit) +
+      " " + K.UNIT_LABEL[it.unit] + " would go off before you eat it.</div>";
+  }
+  $("#stkPrev").innerHTML = h;
+  SHEET.preview = { qty: q, expDay: expDay };
+}
+
+function confirmStock() {
+  var it = byId(SHEET.id);
+  var p = SHEET.preview;
+  if (!it || !p || !(p.qty > 0)) { toast("Enter an amount first."); return; }
+  it.lots.push({ id: uid(), qty: p.qty, exp: p.expDay, open: null,
+    bought: K.today(), product: "" });
+  it.asOf = K.today();
+  save();
+  closeSheets();
+  toast("Added to " + it.name.toLowerCase() + ".");
+  render();
+}
+
+/* --------------------------------------------------------------- item sheet */
+
+function openItem(id) {
+  var it = id ? byId(id) : null;
+  SHEET = { kind: "item", id: id || null, unit: it ? it.unit : "pc" };
+  $("#itemTitle").textContent = it ? it.name : "New item";
+  $("#itName").value = it ? it.name : "";
+  $("#itMonth").value = it ? it.perMonth : "";
+  $("#itDay").value = it && it.perMonth ? round3(K.rateOf(it)) : "";
+  $("#itShelf").value = it ? it.shelfLife : 30;
+  $("#itOpen").value = it ? it.openLife : 0;
+  $("#itCover").value = it && it.coverDays ? it.coverDays : "";
+  $("#itUnit").innerHTML = K.CANON.map(function (u) {
+    return '<button class="tg' + (SHEET.unit === u ? " on" : "") + '" data-unit="' + u + '">' +
+      K.UNIT_NOUN[u] + "</button>";
+  }).join("");
+  $("#itDeleteRow").hidden = !it;
+  itemHint();
+  openSheet("#mItem");
+  if (!it) setTimeout(function () { $("#itName").focus(); }, 60);
+}
+function round3(v) { return Math.round(v * 1000) / 1000; }
+
+function itemHint() {
+  var m = num($("#itMonth").value);
+  var u = K.UNIT_LABEL[SHEET.unit];
+  $("#itRateHint").textContent = isFinite(m) && m > 0
+    ? "That is " + K.fmtQty(m / K.MONTH, SHEET.unit) + " " + u + " a day, " +
+      K.fmtQty(m * 12, SHEET.unit) + " " + u + " a year."
+    : "Type whichever number you know — the other one follows.";
+}
+
+function confirmItem() {
+  var name = $("#itName").value.trim();
+  var per = num($("#itMonth").value);
+  if (!name) { toast("Give it a name."); return; }
+  if (!isFinite(per) || per < 0) { toast("How much per month?"); return; }
+  var shelf = Math.max(1, Math.round(num($("#itShelf").value)) || 30);
+  var openL = Math.max(0, Math.round(num($("#itOpen").value)) || 0);
+  var cover = Math.round(num($("#itCover").value));
+  var it = SHEET.id ? byId(SHEET.id) : null;
+
+  if (!it) {
+    it = { id: uid(), name: name, unit: SHEET.unit, perMonth: per, shelfLife: shelf,
+      openLife: openL, coverDays: isFinite(cover) && cover > 0 ? cover : null,
+      watch: [], lots: [], asOf: K.today(), spent: 0, saved: 0, boughtQty: 0, wasted: 0 };
+    S.items.push(it);
+    EXPANDED[it.id] = true;
+  } else {
+    // Changing the unit would make existing pack sizes and stock meaningless.
+    if (it.unit !== SHEET.unit && (it.lots.length || it.watch.length)) {
+      toast("Clear the stock and lookout list before changing the unit.");
+      return;
+    }
+    it.name = name; it.unit = SHEET.unit; it.perMonth = per;
+    it.shelfLife = shelf; it.openLife = openL;
+    it.coverDays = isFinite(cover) && cover > 0 ? cover : null;
+  }
+  save();
+  closeSheets();
+  render();
+}
+
+function deleteItem() {
+  var it = byId(SHEET.id);
+  if (!it) return;
+  if (!confirm("Delete " + it.name + ", its stock and its lookout list?")) return;
+  S.items = S.items.filter(function (x) { return x.id !== it.id; });
+  save();
+  closeSheets();
+  toast(it.name + " removed.");
+  render();
+}
+
+/* -------------------------------------------------------------- month close */
+
+function openReset() {
+  var m = monthTotals();
+  $("#resetSub").textContent = "Filing " + monthName(S.month) + ".";
+  var lines = S.items.filter(function (it) { return it.spent > 0 || it.boughtQty > 0; });
+  var h = '<div class="kv"><span>Spent</span><b class="num">' + K.kr0(m.spent) + " kr</b></div>" +
+    '<div class="kv"><span>Saved</span><b class="num save">' + K.kr0(m.saved) + " kr</b></div>" +
+    '<div class="kv"><span>Purchases</span><b class="num">' + S.receipts.length + "</b></div>";
+  lines.forEach(function (it) {
+    h += '<div class="kv"><span>' + esc(it.name) + "</span><b class=\"num\">" +
+      K.fmtQty(it.boughtQty, it.unit) + " " + K.UNIT_LABEL[it.unit] + " · " +
+      K.kr0(it.spent) + " kr</b></div>";
+  });
+  $("#resetPrev").innerHTML = h;
+  openSheet("#mReset");
+}
+
+function confirmReset() {
+  var m = monthTotals();
+  S.archive.push({
+    month: S.month, spent: m.spent, saved: m.saved, budget: m.budget,
+    items: S.items.map(function (it) {
+      return { name: it.name, unit: it.unit, qty: it.boughtQty, spent: it.spent,
+        saved: it.saved, wasted: it.wasted };
+    }).filter(function (x) { return x.qty > 0 || x.spent > 0; }),
+    receipts: S.receipts.slice(),
+  });
+  if (S.archive.length > 24) S.archive = S.archive.slice(-24);
+
+  S.receipts = [];
+  S.items.forEach(function (it) {
+    it.spent = 0; it.saved = 0; it.boughtQty = 0; it.wasted = 0;
+  });
+  S.month = K.monthKeyOf();
+  save();
+  closeSheets();
+  toast("Filed. Stock and lists are untouched.");
+  render();
+}
+
+/* =================================================================== render */
+
+var TAB = "today";
+
+function render() {
+  reconcileAll();
+  $$("#p-today,#p-stock,#p-money,#p-plan").forEach(function (p) {
+    p.classList.toggle("on", p.id === "p-" + TAB);
+  });
+  $$("nav button").forEach(function (b) {
+    b.classList.toggle("on", b.dataset.tab === TAB);
+  });
+
+  if (TAB === "today") renderToday();
+  if (TAB === "stock") renderStock();
+  if (TAB === "money") renderMoney();
+  if (TAB === "plan") renderPlan();
+
+  var titles = { today: "Today", stock: "Stock", money: "Money", plan: "Plan" };
+  $("#hTitle").textContent = titles[TAB];
+
+  var m = monthTotals();
+  var todo = S.items.map(viewOf).filter(function (v) {
+    return v.d.state === "out" || v.d.state === "need" || v.d.state === "deal";
+  });
+  var pip = $("#pip");
+  pip.hidden = todo.length === 0;
+  pip.textContent = todo.length;
+
+  $("#hRight").textContent = m.saved > 0 ? "saved " + K.kr0(m.saved) + " kr" : "";
+  var d = new Date();
+  $("#hSub").textContent = TAB === "today"
+    ? d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })
+    : monthName(S.month);
+}
+
+/* =================================================================== events */
+
+document.addEventListener("click", function (e) {
+  var nav = e.target.closest("nav button");
+  if (nav) { TAB = nav.dataset.tab; window.scrollTo(0, 0); render(); return; }
+
+  var modal = e.target.closest(".modal");
+  if (modal && e.target === modal) { closeSheets(); return; }
+
+  // expiry quick tags
+  var tg = e.target.closest("#buyTags .tg, #stkTags .tg");
+  if (tg) {
+    var days = +tg.dataset.days;
+    var wrap = tg.parentElement.id === "buyTags" ? "buy" : "stk";
+    $("#" + wrap + "Tags").innerHTML = tagsHTML(days);
+    $("#" + wrap + "Exp").value = K.isoFromDay(K.today() + days);
+    if (wrap === "buy") buyPreview(); else stockPreview();
+    return;
+  }
+  var ut = e.target.closest("#itUnit .tg");
+  if (ut) {
+    SHEET.unit = ut.dataset.unit;
+    $("#itUnit").innerHTML = K.CANON.map(function (u) {
+      return '<button class="tg' + (SHEET.unit === u ? " on" : "") + '" data-unit="' + u + '">' +
+        K.UNIT_NOUN[u] + "</button>";
+    }).join("");
+    itemHint();
+    return;
+  }
+
+  var b = e.target.closest("[data-act]");
+  if (!b) return;
+  var act = b.dataset.act, id = b.dataset.id;
+
+  if (act === "close") { closeSheets(); return; }
+
+  if (act === "toggle") {
+    EXPANDED[id] = !EXPANDED[id];
+    var d = $("#d-" + id);
+    if (d) {
+      d.classList.toggle("on", !!EXPANDED[id]);
+      var card = d.closest(".card");
+      if (card) {
+        card.classList.toggle("open", !!EXPANDED[id]);
+        var cv = card.querySelector(".chev");
+        if (cv) cv.textContent = EXPANDED[id] ? "⌃" : "⌄";
+      }
+      if (EXPANDED[id]) {
+        var inp = $('input[data-act="search"][data-id="' + id + '"]');
+        if (inp) setTimeout(function () { inp.focus(); }, 80);
+      }
+    }
+    return;
+  }
+
+  if (act === "watch") {
+    var it = byId(id), key = b.dataset.key;
+    var has = it.watch.some(function (w) { return w.key === key; });
+    if (has) {
+      it.watch = it.watch.filter(function (w) { return w.key !== key; });
+    } else {
+      var row = lookup(key);
+      var pack = num(b.dataset.pack);
+      it.watch.push({ key: key, pack: isFinite(pack) && pack > 0 ? pack : 1,
+        name: row ? row.name : key, store: row ? row.store : "",
+        lastPrice: row ? row.price : 0, lastRegular: row ? row.regular : 0 });
+      if (!(isFinite(pack) && pack > 0)) toast("Set the pack size — it could not be read.");
+    }
+    save();
+    // Update the tapped row in place. Rebuilding the results would pull the
+    // list out from under your finger halfway through adding three products.
+    var plus = b.querySelector(".plus");
+    if (plus) {
+      plus.classList.toggle("on", !has);
+      plus.textContent = has ? "+" : "✓";
+    }
+    var lo = $("#lo-" + id);
+    if (lo) lo.innerHTML = lookoutHTML(viewOf(it));
+    return;
+  }
+
+  if (act === "unwatch") {
+    var it2 = byId(id);
+    it2.watch = it2.watch.filter(function (w) { return w.key !== b.dataset.key; });
+    save();
+    var lo2 = $("#lo-" + id);
+    if (lo2) lo2.innerHTML = lookoutHTML(viewOf(it2));
+    renderResults(id);
+    return;
+  }
+
+  if (act === "dropLot") {
+    var it3 = byId(id);
+    var kill = {};
+    String(b.dataset.lot).split(",").forEach(function (x) { kill[x] = true; });
+    it3.lots = it3.lots.filter(function (l) { return !kill[l.id]; });
+    save(); render(); return;
+  }
+
+  if (act === "openBuy") { openBuy(id); return; }
+  if (act === "openStock") { openStock(id); return; }
+  if (act === "confirmBuy") { confirmBuy(); return; }
+  if (act === "confirmStock") { confirmStock(); return; }
+  if (act === "newItem") { openItem(null); return; }
+  if (act === "editItem") { openItem(id); return; }
+  if (act === "confirmItem") { confirmItem(); return; }
+  if (act === "deleteItem") { deleteItem(); return; }
+  if (act === "openReset") { openReset(); return; }
+  if (act === "confirmReset") { confirmReset(); return; }
+  if (act === "refresh") { toast("Checking…"); loadCatalog(); return; }
+  if (act === "export") { doExport(); return; }
+  if (act === "import") { $("#importFile").click(); return; }
+
+  if (act === "starter") {
+    var s = STARTERS[+b.dataset.i];
+    if (S.items.some(function (x) { return x.name === s.name; })) { toast(s.name + " is already there."); return; }
+    S.items.push({ id: uid(), name: s.name, unit: s.unit, perMonth: s.perMonth,
+      shelfLife: s.shelfLife, openLife: s.openLife, coverDays: null,
+      watch: [], lots: [], asOf: K.today(), spent: 0, saved: 0, boughtQty: 0, wasted: 0 });
+    save(); render(); return;
+  }
+});
+
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  var r = e.target.closest && e.target.closest('[role="button"]');
+  if (!r) return;
+  e.preventDefault();
+  r.click();
+});
+
+var searchTimer = null;
+document.addEventListener("input", function (e) {
+  var t = e.target;
+  if (t.dataset && t.dataset.act === "search") {
+    clearTimeout(searchTimer);
+    var id = t.dataset.id;
+    searchTimer = setTimeout(function () { renderResults(id); }, 180);
+    return;
+  }
+  if (t.id === "buyPacks" || t.id === "buyPrice") { buyPreview(); return; }
+  if (t.id === "stkQty") { stockPreview(); return; }
+  if (t.id === "itMonth") {
+    var m = num(t.value);
+    $("#itDay").value = isFinite(m) && m > 0 ? round3(m / K.MONTH) : "";
+    itemHint(); return;
+  }
+  if (t.id === "itDay") {
+    var dd = num(t.value);
+    $("#itMonth").value = isFinite(dd) && dd > 0 ? round3(dd * K.MONTH) : "";
+    itemHint(); return;
+  }
+});
+
+document.addEventListener("change", function (e) {
+  var t = e.target;
+  if (t.id === "buyProduct") {
+    var c = currentOffer();
+    if (c.o) $("#buyPrice").value = c.o.price.toFixed(2);
+    buyPreview(); return;
+  }
+  if (t.id === "buyExp") { buyPreview(); return; }
+  if (t.id === "stkExp") { stockPreview(); return; }
+
+  if (t.dataset && t.dataset.act === "pack") {
+    var it = byId(t.dataset.id);
+    var v = num(t.value);
+    if (!it) return;
+    if (!isFinite(v) || v <= 0) { toast("Pack size has to be a number above zero."); return; }
+    it.watch.forEach(function (w) { if (w.key === t.dataset.key) w.pack = v; });
+    save();
+    var lo = $("#lo-" + it.id);
+    if (lo) lo.innerHTML = lookoutHTML(viewOf(it));
+    return;
+  }
+  if (t.dataset && t.dataset.act === "set") {
+    var n = num(t.value);
+    if (isFinite(n) && n > 0) { S.settings[t.dataset.k] = n; save(); render(); }
+    return;
+  }
+});
+
+/* ------------------------------------------------------------ backup files */
+
+function doExport() {
+  var blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "kurv-" + K.isoFromDay(K.today()) + ".json";
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  toast("Backup saved.");
+}
+
+$("#importFile").addEventListener("change", function (e) {
+  var f = e.target.files[0];
+  if (!f) return;
+  var fr = new FileReader();
+  fr.onload = function () {
+    try {
+      var d = JSON.parse(fr.result);
+      if (!d || !Array.isArray(d.items)) throw new Error("not a Kurv backup");
+      if (!confirm("Replace everything on this device with the backup?")) return;
+      localStorage.setItem(LSKEY, JSON.stringify(d));
+      load(); render();
+      toast("Restored.");
+    } catch (err) { toast("That file is not a Kurv backup."); }
+  };
+  fr.readAsText(f);
+  e.target.value = "";
+});
+
+/* ====================================================================== go */
+
+load();
+render();
+loadCatalog();
+
+// Coming back after midnight, or after a week away, should not show stale cover.
+document.addEventListener("visibilitychange", function () {
+  if (!document.hidden) render();
+});
+
+window.Kurv_app = { S: function () { return S; }, CAT: CAT, render: render,
+  search: search, viewOf: viewOf, load: load };
 })();
 </script>
 </body>
