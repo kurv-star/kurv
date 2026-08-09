@@ -32,6 +32,7 @@ jobs:
         run: |
           mkdir -p dist
           cp -r site/. dist/
+          ls -la dist/
 
       - name: Fetch and slim the price data
         run: node tools/build-data.mjs
