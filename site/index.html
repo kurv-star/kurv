@@ -332,6 +332,9 @@ nav .pip{position:absolute;top:7px;right:calc(50% - 19px);min-width:15px;height:
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
+/* ============================================================================
+ * ENGINE
+ * ==========================================================================*/
 var Kurv = (function () {
   "use strict";
   var MS_DAY = 86400000;
@@ -342,21 +345,26 @@ var Kurv = (function () {
     d = d || new Date();
     return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / MS_DAY);
   }
+  
   function dayFromISO(iso) {
     if (!iso || String(iso).length < 10) return null;
     var y = +String(iso).slice(0, 4), m = +String(iso).slice(5, 7), d = +String(iso).slice(8, 10);
     if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return null;
     return Math.floor(Date.UTC(y, m - 1, d) / MS_DAY);
   }
+  
   function isoFromDay(n) {
     if (n === null || n === undefined || !isFinite(n)) return "";
     return new Date(n * MS_DAY).toISOString().slice(0, 10);
   }
+  
   function today() { return dayOf(new Date()); }
+  
   function monthKeyOf(d) {
     d = d || new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
   }
+  
   var MON = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
   function dayLabel(n) {
     if (n === null || n === undefined || !isFinite(n)) return "—";
@@ -379,7 +387,9 @@ var Kurv = (function () {
     pk: ["pc", 1], pak: ["pc", 1], pakke: ["pc", 1], pkt: ["pc", 1],
     styk: ["pc", 1], piece: ["pc", 1], pieces: ["pc", 1], ps: ["pc", 1],
   };
+
   function cleanUnit(u) { return String(u || "").trim().toLowerCase().replace(/[.\s_-]/g, ""); }
+  
   function toCanon(qty, unit, canon) {
     var q = Number(qty);
     if (!isFinite(q) || q <= 0) return null;
@@ -390,6 +400,7 @@ var Kurv = (function () {
 
   var NUM = "(\\d+(?:[.,]\\d+)?)";
   var UNITS = "(kg|g|gram|gr|ml|cl|dl|liter|litre|ltr|l|stk|styk|st|stks|pk|pakke|pak|pkt|pcs|pc)";
+  
   function parsePack(name, colQty, colUnit, canon) {
     var direct = toCanon(colQty, colUnit, canon);
     var found = [];
@@ -586,11 +597,17 @@ var Kurv = (function () {
 
   function openLot(item, todayDay) {
     var order = fefo(item.lots, item.openLife || 0);
-    for (var i = 0; i < order.length; i++) if (order[i].qty > EPS) {
-      var l = order[i];
-      var e = effExp(l, item.openLife || 0);
-      return { lot: l, isOpen: l.open !== null && l.open !== undefined,
-               expires: e, daysLeft: e === null ? null : e - todayDay };
+    for (var i = 0; i < order.length; i++) {
+      if (order[i].qty > EPS) {
+        var l = order[i];
+        var e = effExp(l, item.openLife || 0);
+        return { 
+          lot: l, 
+          isOpen: l.open !== null && l.open !== undefined,
+          expires: e, 
+          daysLeft: e === null ? null : e - todayDay 
+        };
+      }
     }
     return null;
   }
@@ -664,7 +681,13 @@ var Kurv = (function () {
       budget: null, remaining: null, reason: "", capped: "",
       spoiling: run(cloneLots(item.lots), rate, item.openLife || 0, todayDay, todayDay + 14).wasted,
     };
-    if (rate <= 0) { res.state = "off"; res.reason = "No monthly amount set yet."; return res; }
+    
+    if (rate <= 0) { 
+      res.state = "off"; 
+      res.reason = "No monthly amount set yet."; 
+      return res; 
+    }
+    
     if (!best) {
       res.state = stock <= EPS ? "out" : "ok";
       res.reason = "Nothing on the lookout list yet.";
@@ -697,7 +720,7 @@ var Kurv = (function () {
 
     var shelf = Number(item.shelfLife) > 0 ? Number(item.shelfLife) : 30;
     var byShelf = packsBeforeWaste(item, best, shelf, todayDay, 40);
-    // CRITICAL BUG FIX: Bypass the monthly budget strictly limiting deal opportunity buying
+    // BUG FIX: Deals explicitly bypass the strict monthly budget
     var byBudget = (res.remaining === null || isDeal) ? 40 : Math.floor((res.remaining + 1e-6) / best.price);
     var maxCover = settings.maxCover > 0 ? settings.maxCover : 120;
     var byCover = Math.max(0, Math.floor((rate * maxCover - stock) / best.pack));
@@ -765,6 +788,7 @@ var Kurv = (function () {
   }
 
   function kr(v) { return !isFinite(v) ? "—" : v.toFixed(2).replace(".", ","); }
+  
   function kr0(v) { return !isFinite(v) ? "—" : Math.round(v).toLocaleString("da-DK"); }
 
   return {
@@ -777,6 +801,9 @@ var Kurv = (function () {
   };
 })();
 
+/* ============================================================================
+ * APP LOGIC
+ * ==========================================================================*/
 (function () {
 "use strict";
 
@@ -794,14 +821,22 @@ function load() {
   try {
     var raw = localStorage.getItem(LSKEY);
     S = raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(DEFAULTS));
-  } catch (e) { S = JSON.parse(JSON.stringify(DEFAULTS)); }
+  } catch (e) { 
+    S = JSON.parse(JSON.stringify(DEFAULTS)); 
+  }
+  
   var d = DEFAULTS;
   for (var k in d) if (!(k in S)) S[k] = JSON.parse(JSON.stringify(d[k]));
   for (var sk in d.settings) if (!(sk in S.settings)) S.settings[sk] = d.settings[sk];
   if (!S.month) S.month = K.monthKeyOf();
+  
   S.items.forEach(function (it) {
-    it.watch = it.watch || []; it.lots = it.lots || []; it.spent = Number(it.spent) || 0;
-    it.saved = Number(it.saved) || 0; it.boughtQty = Number(it.boughtQty) || 0; it.wasted = Number(it.wasted) || 0;
+    it.watch = it.watch || []; 
+    it.lots = it.lots || []; 
+    it.spent = Number(it.spent) || 0;
+    it.saved = Number(it.saved) || 0; 
+    it.boughtQty = Number(it.boughtQty) || 0; 
+    it.wasted = Number(it.wasted) || 0;
     if (it.asOf === undefined || it.asOf === null) it.asOf = K.today();
     it.lots.forEach(function (l) { if (l.open === undefined) l.open = null; });
   });
@@ -818,49 +853,74 @@ function save() {
 function reconcileAll() {
   var t = K.today();
   var spoiled = 0;
-  S.items.forEach(function (it) { var r = K.reconcile(it, t); spoiled += r.wasted; });
+  S.items.forEach(function (it) { 
+    var r = K.reconcile(it, t); 
+    spoiled += r.wasted; 
+  });
   if (spoiled > 0) save();
   return spoiled;
 }
 
 var CAT = { rows: [], byKey: new Map(), folded: [], meta: null, ready: false, error: "" };
+
 function idb() {
   return new Promise(function (res, rej) {
     var q = indexedDB.open("kurv", 1);
     q.onupgradeneeded = function () { q.result.createObjectStore("kv"); };
-    q.onsuccess = function () { res(q.result); }; q.onerror = function () { rej(q.error); };
+    q.onsuccess = function () { res(q.result); }; 
+    q.onerror = function () { rej(q.error); };
   });
 }
+
 function idbGet(k) {
   return idb().then(function (db) {
     return new Promise(function (res) {
       var r = db.transaction("kv").objectStore("kv").get(k);
-      r.onsuccess = function () { res(r.result || null); }; r.onerror = function () { res(null); };
+      r.onsuccess = function () { res(r.result || null); }; 
+      r.onerror = function () { res(null); };
     });
   }).catch(function () { return null; });
 }
+
 function idbPut(k, v) {
   return idb().then(function (db) {
     return new Promise(function (res) {
-      var t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k);
-      t.oncomplete = function () { res(true); }; t.onerror = function () { res(false); };
+      var t = db.transaction("kv", "readwrite"); 
+      t.objectStore("kv").put(v, k);
+      t.oncomplete = function () { res(true); }; 
+      t.onerror = function () { res(false); };
     });
   }).catch(function () { return false; });
 }
+
 function itemKey(store, name) { return store + "|" + name; }
+
 function indexCatalog(rows) {
-  CAT.rows = rows; CAT.byKey = new Map(); CAT.folded = new Array(rows.length);
+  CAT.rows = rows; 
+  CAT.byKey = new Map(); 
+  CAT.folded = new Array(rows.length);
   for (var i = 0; i < rows.length; i++) {
     CAT.byKey.set(itemKey(rows[i][0], rows[i][1]), i);
     CAT.folded[i] = K.fold(rows[i][0] + " " + rows[i][1]);
   }
   CAT.ready = true;
 }
+
 function rowAt(i) {
-  var r = CAT.rows[i]; if (!r) return null;
-  return { key: itemKey(r[0], r[1]), store: r[0], name: r[1], price: r[2], quantity: r[3], unit: r[4], regular: r[5] || r[2], since: r[6], high: r[7] };
+  var r = CAT.rows[i]; 
+  if (!r) return null;
+  return { 
+    key: itemKey(r[0], r[1]), store: r[0], name: r[1], 
+    price: r[2], quantity: r[3], unit: r[4], 
+    regular: r[5] || r[2], since: r[6], high: r[7] 
+  };
 }
-function lookup(key) { var i = CAT.byKey.get(key); return i === undefined ? null : rowAt(i); }
+
+function lookup(key) { 
+  var i = CAT.byKey.get(key); 
+  return i === undefined ? null : rowAt(i); 
+}
+
 function storeLabel(s) {
   var m = { rema1000: "Rema 1000", foetex: "Føtex", fotex: "Føtex", bilka: "Bilka", netto: "Netto", lidl: "Lidl", aldi: "Aldi", meny: "Meny", spar: "Spar", superbrugsen: "SuperBrugsen", kvickly: "Kvickly", dagligbrugsen: "Dagli'Brugsen", coop365: "Coop 365", irma: "Irma", brugsen: "Brugsen", minkobmand: "Min Købmand" };
   return m[s] || (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -868,17 +928,41 @@ function storeLabel(s) {
 
 async function loadCatalog() {
   var cached = await idbGet("catalog");
-  if (cached && cached.rows) { CAT.meta = cached.meta; indexCatalog(cached.rows); render(); }
+  if (cached && cached.rows) { 
+    CAT.meta = cached.meta; 
+    indexCatalog(cached.rows); 
+    render(); 
+  }
+  
   var meta = null;
-  try { var mr = await fetch("data/meta.json", { cache: "no-store" }); if (mr.ok) meta = await mr.json(); } catch (e) {}
-  if (!meta) { if (!cached) CAT.error = "No price list yet. You can still track stock and type prices by hand."; render(); return; }
-  if (cached && cached.built === meta.built) { CAT.meta = meta; render(); return; }
+  try { 
+    var mr = await fetch("data/meta.json", { cache: "no-store" }); 
+    if (mr.ok) meta = await mr.json(); 
+  } catch (e) {}
+  
+  if (!meta) { 
+    if (!cached) CAT.error = "No price list yet. You can still track stock and type prices by hand."; 
+    render(); 
+    return; 
+  }
+  
+  if (cached && cached.built === meta.built) { 
+    CAT.meta = meta; 
+    render(); 
+    return; 
+  }
+  
   try {
     var r = await fetch("data/catalog.json", { cache: "no-store" });
     if (!r.ok) throw new Error("HTTP " + r.status);
-    var data = await r.json(); CAT.meta = meta; CAT.error = ""; indexCatalog(data.rows);
+    var data = await r.json(); 
+    CAT.meta = meta; 
+    CAT.error = ""; 
+    indexCatalog(data.rows);
     await idbPut("catalog", { built: meta.built, rows: data.rows, meta: meta });
-  } catch (e) { if (!cached) CAT.error = "Could not download prices: " + e.message; }
+  } catch (e) { 
+    if (!cached) CAT.error = "Could not download prices: " + e.message; 
+  }
   render();
 }
 
@@ -886,17 +970,30 @@ function search(q, canon, limit) {
   var groups = K.queryTerms(q);
   if (!groups.length || !CAT.ready) return [];
   var first = groups[0], hits = [], f, quick, j, s;
+  
   for (var i = 0; i < CAT.folded.length; i++) {
-    f = CAT.folded[i]; quick = false;
-    for (j = 0; j < first.length; j++) if (f.indexOf(first[j]) >= 0) { quick = true; break; }
+    f = CAT.folded[i]; 
+    quick = false;
+    for (j = 0; j < first.length; j++) {
+      if (f.indexOf(first[j]) >= 0) { quick = true; break; }
+    }
     if (!quick) continue;
-    s = K.scoreName(f, groups); if (s < 0) continue;
-    hits.push([i, s]); if (hits.length > 4000) break;
+    s = K.scoreName(f, groups); 
+    if (s < 0) continue;
+    hits.push([i, s]); 
+    if (hits.length > 4000) break;
   }
+  
   var out = hits.map(function (h) {
-    var row = rowAt(h[0]); var pack = K.parsePack(row.name, row.quantity, row.unit, canon);
-    return { row: row, pack: pack, score: h[1], unitPrice: pack ? row.price / pack : null, off: row.regular > row.price ? (row.regular - row.price) / row.regular : 0 };
+    var row = rowAt(h[0]); 
+    var pack = K.parsePack(row.name, row.quantity, row.unit, canon);
+    return { 
+      row: row, pack: pack, score: h[1], 
+      unitPrice: pack ? row.price / pack : null, 
+      off: row.regular > row.price ? (row.regular - row.price) / row.regular : 0 
+    };
   });
+  
   out.sort(function (a, b) {
     if (!!a.pack !== !!b.pack) return a.pack ? -1 : 1;
     var d = b.score - a.score;
@@ -907,19 +1004,40 @@ function search(q, canon, limit) {
   return out.slice(0, limit || 25);
 }
 
-function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-function num(v) { var n = parseFloat(String(v == null ? "" : v).replace(",", ".")); return isFinite(n) ? n : NaN; }
-function toast(msg) {
-  var t = $("#toast"); t.textContent = msg; t.classList.add("on");
-  clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove("on"); }, 2600);
+function esc(s) { 
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { 
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; 
+  }); 
 }
-function byId(id) { return S.items.filter(function (i) { return i.id === id; })[0]; }
+
+function num(v) { 
+  var n = parseFloat(String(v == null ? "" : v).replace(",", ".")); 
+  return isFinite(n) ? n : NaN; 
+}
+
+function toast(msg) {
+  var t = $("#toast"); 
+  t.textContent = msg; 
+  t.classList.add("on");
+  clearTimeout(toast._t); 
+  toast._t = setTimeout(function () { t.classList.remove("on"); }, 2600);
+}
+
+function byId(id) { 
+  return S.items.filter(function (i) { return i.id === id; })[0]; 
+}
+
 var STATE_ORDER = { out: 0, need: 1, deal: 2, ok: 3, off: 4 };
 
 function viewOf(it) {
-  var t = K.today(); var offs = K.offers(it, lookup);
-  var d = K.decide(it, offs, t, S.settings); var open = K.openLot(it, t);
-  return { it: it, offs: offs, d: d, open: open, today: t, reorder: (isFinite(it.coverDays) && it.coverDays > 0) ? it.coverDays : S.settings.coverDays };
+  var t = K.today(); 
+  var offs = K.offers(it, lookup);
+  var d = K.decide(it, offs, t, S.settings); 
+  var open = K.openLot(it, t);
+  return { 
+    it: it, offs: offs, d: d, open: open, today: t, 
+    reorder: (isFinite(it.coverDays) && it.coverDays > 0) ? it.coverDays : S.settings.coverDays 
+  };
 }
 
 function gauge(v, ghostDays) {
@@ -950,9 +1068,18 @@ var EXPANDED = {};
 
 function renderToday() {
   var body = $("#todayBody");
-  if (!S.items.length) { body.innerHTML = starterHTML(); return; }
+  if (!S.items.length) { 
+    body.innerHTML = starterHTML(); 
+    return; 
+  }
+  
   var views = S.items.map(viewOf);
-  views.sort(function (a, b) { var s = STATE_ORDER[a.d.state] - STATE_ORDER[b.d.state]; if (s) return s; return a.d.cover - b.d.cover; });
+  views.sort(function (a, b) { 
+    var s = STATE_ORDER[a.d.state] - STATE_ORDER[b.d.state]; 
+    if (s) return s; 
+    return a.d.cover - b.d.cover; 
+  });
+  
   var html = "";
   if (S.month !== K.monthKeyOf()) {
     html += '<div class="note"><span>A new month has started. Close ' + esc(monthName(S.month)) + ' to file its receipts.</span><button class="btn sm" data-act="openReset">Close</button></div>';
@@ -973,9 +1100,11 @@ function renderToday() {
     html += "<h2>Covered</h2>";
     calm.forEach(function (v) { html += slimHTML(v); });
   }
+  
   if (S.items.length < 5 && remainingStarters().length) {
     html += "<h2>Add more of your plan</h2>" + starterChips() + '<div class="row"><button class="btn ghost" data-act="newItem" style="flex:1">Add something else</button></div>';
   }
+  
   body.innerHTML = html;
 }
 
@@ -986,7 +1115,7 @@ function cardHTML(v) {
   var bcls = { out: "b-out", need: "b-need", deal: "b-deal", off: "b-off" }[d.state] || "b-off";
 
   var h = '<div class="' + cls + '" data-id="' + it.id + '">';
-  h += '<div class="chead"><div class="cname">' + esc(it.name) + "</div><span class="badge " + bcls + '">' + label + "</span></div>";
+  h += '<div class="chead"><div class="cname">' + esc(it.name) + "</div><span class=\"badge " + bcls + '">' + label + "</span></div>";
   h += '<div class="gsub"><span><b class="num">' + K.fmtQty(d.stock, it.unit) + "</b> " + K.UNIT_LABEL[it.unit] + " left</span><span>" + (d.cover <= 0 ? "gone" : "lasts " + K.fmtDays(d.cover)) + "</span></div>";
   h += '<div class="gauge">' + gauge(v, d.coverAfter) + '</div>';
 
@@ -1004,13 +1133,16 @@ function cardHTML(v) {
   } else {
     h += '<div class="row"><button class="btn ghost" data-act="toggle" data-id="' + it.id + '" style="flex:1">Lookout list <span class="chev">' + (EXPANDED[it.id] ? "⌃" : "⌄") + "</span></button></div>";
   }
-  h += footHTML(v); h += detailHTML(v);
+  
+  h += footHTML(v); 
+  h += detailHTML(v);
   return h + "</div>";
 }
 
 function slimHTML(v) {
   var it = v.it, d = v.d;
   var right = d.best ? K.kr(d.best.unitPrice) + " kr/" + K.UNIT_PER[it.unit] : "no list yet";
+  
   var h = '<div class="card" data-id="' + it.id + '" style="padding:4px 14px">';
   h += '<div class="slim" role="button" tabindex="0" data-act="toggle" data-id="' + it.id + '">' +
     '<div class="slim-header"><span class="cname">' + esc(it.name) + "</span>" +
@@ -1030,7 +1162,8 @@ function footHTML(v) {
 }
 
 function detailHTML(v) {
-  var it = v.it; var on = EXPANDED[it.id] ? " on" : "";
+  var it = v.it; 
+  var on = EXPANDED[it.id] ? " on" : "";
   var h = '<div class="detail' + on + '" id="d-' + it.id + '">';
   h += '<h2 style="margin-top:0">Lookout list</h2><div id="lo-' + it.id + '">' + lookoutHTML(v) + "</div>";
   h += '<div class="f"><input type="search" placeholder="Add a product — ' + esc(it.name.toLowerCase()) + '" data-act="search" data-id="' + it.id + '" autocomplete="off" autocorrect="off" spellcheck="false"></div><div id="res-' + it.id + '"></div>';
@@ -1040,7 +1173,10 @@ function detailHTML(v) {
 
 function lookoutHTML(v) {
   var it = v.it, offs = v.offs;
-  if (!offs.length) { return '<div class="hint" style="margin:0 0 4px">Nothing here yet. Search below and add the products you would actually buy — the cheapest one per unit always sorts first.</div>'; }
+  if (!offs.length) { 
+    return '<div class="hint" style="margin:0 0 4px">Nothing here yet. Search below and add the products you would actually buy — the cheapest one per unit always sorts first.</div>'; 
+  }
+  
   var h = "";
   offs.forEach(function (o, i) {
     h += '<div class="lo"><div class="lo-m"><div class="lo-n">' + (i === 0 ? '<b>' : "") + esc(o.name) + (i === 0 ? "</b>" : "") + "</div>" +
@@ -1054,12 +1190,26 @@ function lookoutHTML(v) {
 function renderResults(id) {
   var it = byId(id), box = $("#res-" + id);
   if (!it || !box) return;
-  var input = $('input[data-act="search"][data-id="' + id + '"]'), q = input ? input.value.trim() : "";
+  
+  var input = $('input[data-act="search"][data-id="' + id + '"]');
+  var q = input ? input.value.trim() : "";
+  
   if (q.length < 2) { box.innerHTML = ""; return; }
-  if (!CAT.ready) { box.innerHTML = '<div class="hint">' + esc(CAT.error || "Prices are still loading…") + "</div>"; return; }
+  
+  if (!CAT.ready) { 
+    box.innerHTML = '<div class="hint">' + esc(CAT.error || "Prices are still loading…") + "</div>"; 
+    return; 
+  }
+  
   var res = search(q, it.unit, 20);
-  if (!res.length) { box.innerHTML = '<div class="hint">Nothing matched. Try the Danish word.</div>'; return; }
-  var watched = {}; it.watch.forEach(function (w) { watched[w.key] = true; });
+  if (!res.length) { 
+    box.innerHTML = '<div class="hint">Nothing matched. Try the Danish word.</div>'; 
+    return; 
+  }
+  
+  var watched = {}; 
+  it.watch.forEach(function (w) { watched[w.key] = true; });
+  
   var h = "";
   res.forEach(function (r) {
     var on = watched[r.row.key];
@@ -1085,14 +1235,19 @@ var STARTERS = [
   { name: "Yoghurt", unit: "kg", perMonth: 4, shelfLife: 16, openLife: 5 },
   { name: "Coffee", unit: "kg", perMonth: 0.5, shelfLife: 300, openLife: 60 },
 ];
+
 function remainingStarters() {
-  var have = {}; S.items.forEach(function (i) { have[i.name.toLowerCase()] = true; });
+  var have = {}; 
+  S.items.forEach(function (i) { have[i.name.toLowerCase()] = true; });
   return STARTERS.map(function (s, i) { return { s: s, i: i }; }).filter(function (x) { return !have[x.s.name.toLowerCase()]; });
 }
+
 function starterChips() {
-  var left = remainingStarters(); if (!left.length) return "";
+  var left = remainingStarters(); 
+  if (!left.length) return "";
   return '<div class="tags">' + left.map(function (x) { return '<button class="tg" data-act="starter" data-i="' + x.i + '">' + esc(x.s.name) + " +</button>"; }).join("") + "</div>";
 }
+
 function starterHTML() {
   var h = '<div class="empty" style="text-align:left"><b>Start with what you eat.</b> Say how much of something you get through in a month — 3 kg of pasta, 36 eggs, 5 litres of milk. Everything else in the app is worked out from that, so this is the only part you have to think about.</div>';
   h += "<h2>Tap the ones you buy</h2>" + starterChips();
@@ -1102,60 +1257,100 @@ function starterHTML() {
 
 function renderStock() {
   var body = $("#stockBody");
-  if (!S.items.length) { body.innerHTML = '<div class="empty"><b>No items yet.</b>Set up your monthly plan first.</div>'; return; }
-  var t = K.today(); var views = S.items.map(viewOf); views.sort(function (a, b) { return a.d.cover - b.d.cover; });
+  if (!S.items.length) { 
+    body.innerHTML = '<div class="empty"><b>No items yet.</b>Set up your monthly plan first.</div>'; 
+    return; 
+  }
+  
+  var t = K.today(); 
+  var views = S.items.map(viewOf); 
+  views.sort(function (a, b) { return a.d.cover - b.d.cover; });
+  
   var h = '<div class="hint" style="margin:0 0 12px">You can manually open or close packs. Closing a pack pauses its "once open" spoilage countdown.</div>';
+  
   views.forEach(function (v) {
     var it = v.it;
     h += '<div class="card"><div class="chead"><div class="cname">' + esc(it.name) + "</div><span class=\"num\" style=\"font-size:13px;color:var(--mute)\">" + K.fmtQty(v.d.stock, it.unit) + " " + K.UNIT_LABEL[it.unit] + "</span></div>";
+    
     var order = K.fefo(it.lots, it.openLife || 0).filter(function (l) { return l.qty > 1e-9; });
     var groups = [];
     order.forEach(function (l, i) {
-      var e = K.effExp(l, it.openLife || 0); var g = groups[groups.length - 1];
+      var e = K.effExp(l, it.openLife || 0); 
+      var g = groups[groups.length - 1];
       var sameAsLast = g && i > 0 && g.exp === e && g.product === (l.product || "") && g.qtyEach === l.qty && !g.isOpen;
-      if (sameAsLast) { g.n++; g.ids.push(l.id); g.total += l.qty; }
-      else groups.push({ exp: e, product: l.product || "", qtyEach: l.qty, total: l.qty, n: 1, ids: [l.id], isOpen: l.open !== null && l.open !== undefined, lot: l });
+      
+      if (sameAsLast) { 
+        g.n++; 
+        g.ids.push(l.id); 
+        g.total += l.qty; 
+      } else {
+        groups.push({ 
+          exp: e, product: l.product || "", qtyEach: l.qty, total: l.qty, 
+          n: 1, ids: [l.id], isOpen: l.open !== null && l.open !== undefined, lot: l 
+        });
+      }
     });
-    if (!order.length) { h += '<div class="hint" style="margin-top:8px">Empty.</div>'; } 
-    else {
+    
+    if (!order.length) { 
+      h += '<div class="hint" style="margin-top:8px">Empty.</div>'; 
+    } else {
       groups.forEach(function (g) {
-        var left = g.exp === null ? null : g.exp - t; var short = left !== null && left <= 3;
+        var left = g.exp === null ? null : g.exp - t; 
+        var short = left !== null && left <= 3;
         var cut = g.isOpen && it.openLife > 0 && g.lot.open !== null && g.lot.exp > g.lot.open + it.openLife;
+        
         h += '<div class="lot"><div class="lot-m"><div class="lot-q num">' + (g.isOpen ? '<i class="dot"></i>' : "") + (g.n > 1 ? g.n + " × " : "") + K.fmtQty(g.qtyEach, it.unit) + " " + K.UNIT_LABEL[it.unit] + (g.n > 1 ? ' <span style="color:var(--faint);font-weight:400">= ' + K.fmtQty(g.total, it.unit) + "</span>" : "") + "</div>" +
           '<div class="lot-s' + (short ? " soon" : "") + '">' + (g.isOpen ? "<b>Open</b> · " : "Closed · ") + (g.exp === null ? "no date" : "good to " + K.dayLabel(g.exp) + (left !== null ? " · " + (left <= 0 ? "today" : K.fmtDays(left)) : "")) + (cut ? " (cut short by opening)" : "") + (g.product ? " · " + esc(g.product) : "") + "</div></div>" +
           '<button class="btn ghost sm" style="margin-right: 10px;" data-act="toggleOpen" data-id="' + it.id + '" data-lot="' + esc(g.ids[0]) + '">' + (g.isOpen ? 'Close' : 'Open') + '</button>' +
           '<button class="x" data-act="dropLot" data-id="' + it.id + '" data-lot="' + esc(g.ids.join(",")) + '" aria-label="Remove">×</button></div>';
       });
     }
+    
     h += '<div class="row"><button class="btn ghost" data-act="openStock" data-id="' + it.id + '" style="flex:1">Add stock</button></div>';
     if (it.wasted > 0.001) h += '<div class="foot"><span>Thrown out this month</span><span class="num">' + K.fmtQty(it.wasted, it.unit) + " " + K.UNIT_LABEL[it.unit] + "</span></div>";
     h += "</div>";
   });
+  
   body.innerHTML = h;
 }
 
 function monthName(key) {
-  if (!key) return ""; var p = key.split("-"), names = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  if (!key) return ""; 
+  var p = key.split("-");
+  var names = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   return (names[+p[1] - 1] || key) + " " + p[0];
 }
+
 function monthBounds() {
-  var now = new Date(), first = new Date(now.getFullYear(), now.getMonth(), 1), last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  var now = new Date();
+  var first = new Date(now.getFullYear(), now.getMonth(), 1);
+  var last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   return { start: K.dayOf(first), end: K.dayOf(last), days: last.getDate(), dayIn: now.getDate() };
 }
+
 function monthTotals() {
   var budget = 0, spent = 0, saved = 0, left = 0;
   S.items.forEach(function (it) {
-    var offs = K.offers(it, lookup); var b = K.budgetOf(it, offs); if (b !== null) budget += b;
-    spent += it.spent || 0; saved += it.saved || 0;
-    var typ = K.typicalUnit(offs); if (typ !== null) left += Math.max(0, (it.perMonth || 0) - (it.boughtQty || 0)) * typ;
+    var offs = K.offers(it, lookup); 
+    var b = K.budgetOf(it, offs); 
+    if (b !== null) budget += b;
+    spent += it.spent || 0; 
+    saved += it.saved || 0;
+    var typ = K.typicalUnit(offs); 
+    if (typ !== null) left += Math.max(0, (it.perMonth || 0) - (it.boughtQty || 0)) * typ;
   });
   return { budget: budget, spent: spent, saved: saved, left: left, projected: spent + left };
 }
 
 function renderMoney() {
-  var body = $("#moneyBody"); var m = monthTotals(); var b = monthBounds();
+  var body = $("#moneyBody"); 
+  var m = monthTotals(); 
+  var b = monthBounds();
   var h = "";
-  if (S.month !== K.monthKeyOf()) { h += '<div class="note"><span>' + esc(monthName(S.month)) + ' is over.</span><button class="btn sm" data-act="openReset">Close it</button></div>'; }
+  
+  if (S.month !== K.monthKeyOf()) { 
+    h += '<div class="note"><span>' + esc(monthName(S.month)) + ' is over.</span><button class="btn sm" data-act="openReset">Close it</button></div>'; 
+  }
   
   h += '<div class="card"><div class="hsub" style="margin:0 0 6px">Saved so far in ' + esc(monthName(S.month)) + "</div>" +
     '<div class="big" style="color:var(--deal)">' + K.kr0(m.saved) + " <small>kr</small></div>" +
@@ -1173,6 +1368,7 @@ function renderMoney() {
 
   var rs = S.receipts.slice().sort(function (a, b2) { return b2.ts - a.ts; });
   h += "<h2>" + (rs.length ? "Receipts" : "No purchases yet") + "</h2>";
+  
   if (rs.length) {
     h += '<div class="card">';
     rs.slice(0, 60).forEach(function (r) {
@@ -1180,7 +1376,10 @@ function renderMoney() {
         '<div class="rc-p"><div class="num">' + K.kr(r.total) + "</div>" + (r.saved > 0.5 ? '<div class="save num">−' + K.kr0(r.saved) + "</div>" : "") + "</div></div>";
     });
     h += "</div>";
-  } else { h += '<div class="empty">Purchases you log will show up here.</div>'; }
+  } else { 
+    h += '<div class="empty">Purchases you log will show up here.</div>'; 
+  }
+  
   h += '<div class="row"><button class="btn ghost" data-act="openReset" style="flex:1">Close ' + esc(monthName(S.month)) + "</button></div>";
   
   if (S.archive.length) {
@@ -1191,30 +1390,47 @@ function renderMoney() {
     });
     h += "</div>";
   }
+  
   body.innerHTML = h;
 }
 
 function chartSVG(m, b) {
   var W = 320, H = 150, PL = 40, PR = 8, PT = 10, PB = 20;
-  var iw = W - PL - PR, ih = H - PT - PB; var top = Math.max(m.budget, m.projected, m.spent, 1) * 1.12;
+  var iw = W - PL - PR, ih = H - PT - PB; 
+  var top = Math.max(m.budget, m.projected, m.spent, 1) * 1.12;
   var x = function (d) { return PL + (iw * (d - 1)) / Math.max(1, b.days - 1); };
   var y = function (v) { return PT + ih - (ih * v) / top; };
   var byDay = new Array(b.days + 1).fill(0);
-  S.receipts.forEach(function (r) { var dd = new Date(r.ts).getDate(); if (dd >= 1 && dd <= b.days) byDay[dd] += r.total; });
-  var cum = [], run = 0; for (var i = 1; i <= b.dayIn; i++) { run += byDay[i]; cum.push([i, run]); }
+  
+  S.receipts.forEach(function (r) { 
+    var dd = new Date(r.ts).getDate(); 
+    if (dd >= 1 && dd <= b.days) byDay[dd] += r.total; 
+  });
+  
+  var cum = [], run = 0; 
+  for (var i = 1; i <= b.dayIn; i++) { 
+    run += byDay[i]; 
+    cum.push([i, run]); 
+  }
   
   var g = "";
   [0, 0.5, 1].forEach(function (f) {
     var v = top * f;
     g += '<line x1="' + PL + '" x2="' + (W - PR) + '" y1="' + y(v).toFixed(1) + '" y2="' + y(v).toFixed(1) + '" stroke="#e6e1d5" stroke-width="1"/><text x="' + (PL - 5) + '" y="' + (y(v) + 3.5).toFixed(1) + '" text-anchor="end" font-size="8.5" fill="#9c9689" font-family="ui-monospace,monospace">' + Math.round(v) + "</text>";
   });
+  
   g += '<line x1="' + x(1) + '" y1="' + y(0).toFixed(1) + '" x2="' + x(b.days) + '" y2="' + y(m.budget).toFixed(1) + '" stroke="#6f6a5e" stroke-width="1.4" stroke-dasharray="4 3"/>';
+  
   if (cum.length > 1) {
     var area = "M" + x(1) + "," + y(0).toFixed(1);
     cum.forEach(function (p) { area += " L" + x(p[0]).toFixed(1) + "," + y(p[1]).toFixed(1); });
-    for (var j = cum.length - 1; j >= 0; j--) { var d0 = cum[j][0]; area += " L" + x(d0).toFixed(1) + "," + y((m.budget * (d0 - 1)) / (b.days - 1)).toFixed(1); }
+    for (var j = cum.length - 1; j >= 0; j--) { 
+      var d0 = cum[j][0]; 
+      area += " L" + x(d0).toFixed(1) + "," + y((m.budget * (d0 - 1)) / (b.days - 1)).toFixed(1); 
+    }
     g += '<path d="' + area + ' Z" fill="#1a6b46" opacity="0.10"/>';
   }
+  
   if (cum.length) {
     var line = "M" + x(cum[0][0]).toFixed(1) + "," + y(cum[0][1]).toFixed(1);
     cum.forEach(function (p) { line += " L" + x(p[0]).toFixed(1) + "," + y(p[1]).toFixed(1); });
@@ -1222,15 +1438,19 @@ function chartSVG(m, b) {
     var last = cum[cum.length - 1];
     g += '<path d="M' + x(last[0]).toFixed(1) + "," + y(last[1]).toFixed(1) + " L" + x(b.days).toFixed(1) + "," + y(m.projected).toFixed(1) + '" fill="none" stroke="#14120e" stroke-width="1.4" stroke-dasharray="3 3" opacity="0.5"/><circle cx="' + x(last[0]).toFixed(1) + '" cy="' + y(last[1]).toFixed(1) + '" r="3" fill="#14120e"/>';
   }
+  
   g += '<text x="' + PL + '" y="' + (H - 6) + '" font-size="8.5" fill="#9c9689">1</text><text x="' + (W - PR) + '" y="' + (H - 6) + '" font-size="8.5" fill="#9c9689" text-anchor="end">' + b.days + "</text>";
+  
   return '<svg class="chart" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none" role="img" aria-label="Spending against the plan">' + g + "</svg>";
 }
 
 function renderPlan() {
   var body = $("#planBody");
   var h = '<div class="hint" style="margin:0 0 12px">This is the part you set once. Everything the app decides comes out of these numbers.</div><h2>Monthly plan</h2>';
-  if (!S.items.length) { h += starterHTML(); } 
-  else {
+  
+  if (!S.items.length) { 
+    h += starterHTML(); 
+  } else {
     h += '<div class="card">';
     S.items.forEach(function (it) {
       var r = K.rateOf(it);
@@ -1239,15 +1459,22 @@ function renderPlan() {
     h += "</div><div class=\"row\"><button class=\"btn\" data-act=\"newItem\" style=\"flex:1\">Add an item</button></div>";
     if (remainingStarters().length) h += "<h2>Quick add</h2>" + starterChips();
   }
+  
   h += "<h2>Rules</h2><div class=\"card\">";
   h += '<div class="f"><label>Buy again when supply drops to</label><input type="number" min="1" step="1" inputmode="numeric" value="' + S.settings.coverDays + '" data-act="set" data-k="coverDays"><div class="hint">Days.</div></div>';
   h += '<div class="f"><label>An offer counts from</label><input type="number" min="1" step="1" inputmode="numeric" value="' + S.settings.dealPct + '" data-act="set" data-k="dealPct"><div class="hint">Percent under what you normally pay per unit.</div></div>';
   h += '<div class="f"><label>Never stock more than</label><input type="number" min="7" step="1" inputmode="numeric" value="' + S.settings.maxCover + '" data-act="set" data-k="maxCover"><div class="hint">Days of supply.</div></div></div>';
+  
   h += "<h2>Prices</h2><div class=\"card\">";
-  if (CAT.ready) { h += '<div class="kv"><span>Products</span><b class="num">' + CAT.rows.length.toLocaleString("da-DK") + "</b></div><div class=\"kv\"><span>Built</span><b class=\"num\">" + esc(CAT.meta && CAT.meta.built ? String(CAT.meta.built).slice(0, 16).replace("T", " ") : "—") + "</b></div>"; } 
-  else { h += '<div class="hint">' + esc(CAT.error || "Loading…") + "</div>"; }
+  if (CAT.ready) { 
+    h += '<div class="kv"><span>Products</span><b class="num">' + CAT.rows.length.toLocaleString("da-DK") + "</b></div><div class=\"kv\"><span>Built</span><b class=\"num\">" + esc(CAT.meta && CAT.meta.built ? String(CAT.meta.built).slice(0, 16).replace("T", " ") : "—") + "</b></div>"; 
+  } else { 
+    h += '<div class="hint">' + esc(CAT.error || "Loading…") + "</div>"; 
+  }
   h += '<div class="row"><button class="btn ghost" data-act="refresh" style="flex:1">Check for new prices</button></div></div>';
+  
   h += "<h2>Your data</h2><div class=\"card\"><div class=\"hint\" style=\"margin:0 0 10px\">Everything lives on this device only.</div><div class=\"row\"><button class=\"btn ghost\" data-act=\"export\" style=\"flex:1\">Save a backup</button><button class=\"btn ghost\" data-act=\"import\" style=\"flex:1\">Restore</button></div></div>";
+  
   body.innerHTML = h;
 }
 
@@ -1255,214 +1482,456 @@ var SHEET = {}, SCROLL_LOCK = null;
 function lockScroll() {
   if (SCROLL_LOCK !== null) return;
   SCROLL_LOCK = window.scrollY || window.pageYOffset || 0;
-  document.body.style.position = "fixed"; document.body.style.top = "-" + SCROLL_LOCK + "px"; document.body.style.left = "0"; document.body.style.right = "0"; document.body.style.width = "100%";
+  document.body.style.position = "fixed"; 
+  document.body.style.top = "-" + SCROLL_LOCK + "px"; 
+  document.body.style.left = "0"; 
+  document.body.style.right = "0"; 
+  document.body.style.width = "100%";
 }
 function unlockScroll() {
   if (SCROLL_LOCK === null) return;
-  var y = SCROLL_LOCK; SCROLL_LOCK = null; document.body.style.position = ""; document.body.style.top = ""; document.body.style.left = ""; document.body.style.right = ""; document.body.style.width = ""; window.scrollTo(0, y);
+  var y = SCROLL_LOCK; 
+  SCROLL_LOCK = null; 
+  document.body.style.position = ""; 
+  document.body.style.top = ""; 
+  document.body.style.left = ""; 
+  document.body.style.right = ""; 
+  document.body.style.width = ""; 
+  window.scrollTo(0, y);
 }
-function openSheet(id) { lockScroll(); $(id).classList.add("on"); }
-function closeSheets() { $$(".modal").forEach(function (m) { m.classList.remove("on"); }); unlockScroll(); }
+function openSheet(id) { 
+  lockScroll(); 
+  $(id).classList.add("on"); 
+}
+function closeSheets() { 
+  $$(".modal").forEach(function (m) { m.classList.remove("on"); }); 
+  unlockScroll(); 
+}
 
-var EXP_TAGS = [ ["4 days", 4], ["1 week", 7], ["2 weeks", 14], ["1 month", 30], ["3 months", 90], ["6 months", 182], ["1 year", 365] ];
-function tagsHTML(sel) { return EXP_TAGS.map(function (t) { return '<button class="tg' + (sel === t[1] ? " on" : "") + '" data-days="' + t[1] + '">' + t[0] + "</button>"; }).join(""); }
+var EXP_TAGS = [ 
+  ["4 days", 4], ["1 week", 7], ["2 weeks", 14], ["1 month", 30], 
+  ["3 months", 90], ["6 months", 182], ["1 year", 365] 
+];
+
+function tagsHTML(sel) { 
+  return EXP_TAGS.map(function (t) { 
+    return '<button class="tg' + (sel === t[1] ? " on" : "") + '" data-days="' + t[1] + '">' + t[0] + "</button>"; 
+  }).join(""); 
+}
 
 function openBuy(id) {
-  var it = byId(id); if (!it) return; var v = viewOf(it);
+  var it = byId(id); 
+  if (!it) return; 
+  var v = viewOf(it);
+  
   if (!v.offs.length) { toast("Add a product to the lookout list first."); return; }
+  
   SHEET = { kind: "buy", id: id, exp: it.shelfLife || 30 };
-  $("#buyTitle").textContent = it.name; $("#buySub").textContent = K.fmtQty(v.d.stock, it.unit) + " " + K.UNIT_LABEL[it.unit] + " on hand · " + (v.d.cover <= 0 ? "none left" : "lasts " + K.fmtDays(v.d.cover));
-  $("#buyProduct").innerHTML = v.offs.map(function (o, i) { return '<option value="' + esc(o.key) + '"' + (i === 0 ? " selected" : "") + ">" + esc(storeLabel(o.store)) + " · " + esc(o.name) + " · " + K.kr(o.price) + " kr</option>"; }).join("");
-  $("#buyPacks").value = Math.max(1, v.d.packs || 1); $("#buyPrice").value = v.offs[0].price.toFixed(2);
-  $("#buyTags").innerHTML = tagsHTML(SHEET.exp); $("#buyExp").value = K.isoFromDay(K.today() + SHEET.exp);
-  buyPreview(); openSheet("#mBuy");
+  $("#buyTitle").textContent = it.name; 
+  $("#buySub").textContent = K.fmtQty(v.d.stock, it.unit) + " " + K.UNIT_LABEL[it.unit] + " on hand · " + (v.d.cover <= 0 ? "none left" : "lasts " + K.fmtDays(v.d.cover));
+  
+  $("#buyProduct").innerHTML = v.offs.map(function (o, i) { 
+    return '<option value="' + esc(o.key) + '"' + (i === 0 ? " selected" : "") + ">" + esc(storeLabel(o.store)) + " · " + esc(o.name) + " · " + K.kr(o.price) + " kr</option>"; 
+  }).join("");
+  
+  $("#buyPacks").value = Math.max(1, v.d.packs || 1); 
+  $("#buyPrice").value = v.offs[0].price.toFixed(2);
+  $("#buyTags").innerHTML = tagsHTML(SHEET.exp); 
+  $("#buyExp").value = K.isoFromDay(K.today() + SHEET.exp);
+  
+  buyPreview(); 
+  openSheet("#mBuy");
 }
+
 function currentOffer() {
-  var it = byId(SHEET.id), v = viewOf(it), key = $("#buyProduct").value, o = v.offs.filter(function (x) { return x.key === key; })[0] || v.offs[0];
+  var it = byId(SHEET.id), 
+      v = viewOf(it), 
+      key = $("#buyProduct").value, 
+      o = v.offs.filter(function (x) { return x.key === key; })[0] || v.offs[0];
   return { it: it, v: v, o: o };
 }
+
 function buyPreview() {
-  var c = currentOffer(); if (!c.o) return; var it = c.it;
-  var packs = Math.max(1, Math.round(num($("#buyPacks").value)) || 1), price = num($("#buyPrice").value);
+  var c = currentOffer(); 
+  if (!c.o) return; 
+  var it = c.it;
+  var packs = Math.max(1, Math.round(num($("#buyPacks").value)) || 1);
+  var price = num($("#buyPrice").value);
+  
   if (!isFinite(price) || price < 0) price = c.o.price;
+  
   var expDay = K.dayFromISO($("#buyExp").value) || K.today() + (it.shelfLife || 30);
-  var qty = packs * c.o.pack, total = packs * price, typ = c.v.d.typical, saved = typ ? Math.max(0, (typ - price / c.o.pack) * qty) : 0;
+  var qty = packs * c.o.pack;
+  var total = packs * price;
+  var typ = c.v.d.typical;
+  var saved = typ ? Math.max(0, (typ - price / c.o.pack) * qty) : 0;
   
   var lots = K.cloneLots(it.lots);
-  for (var i = 0; i < packs; i++) lots.push({ qty: c.o.pack, exp: expDay, open: null, bought: K.today(), product: c.o.name });
-  var t = K.today(); var sim = K.run(K.cloneLots(lots), K.rateOf(it), it.openLife || 0, t, t + 400, { stopWhenEmpty: true });
+  for (var i = 0; i < packs; i++) {
+    lots.push({ qty: c.o.pack, exp: expDay, open: null, bought: K.today(), product: c.o.name });
+  }
+  
+  var t = K.today(); 
+  var sim = K.run(K.cloneLots(lots), K.rateOf(it), it.openLife || 0, t, t + 400, { stopWhenEmpty: true });
   var cover = (sim.runOut === null ? t + 400 : sim.runOut) - t;
+  
   SHEET.preview = { packs: packs, price: price, qty: qty, total: total, saved: saved, expDay: expDay, offer: c.o, cover: cover, wasted: sim.wasted };
   
   var budgetLeft = c.v.d.remaining;
   var h = '<div class="kv"><span>Adds</span><b class="num">' + K.fmtQty(qty, it.unit) + " " + K.UNIT_LABEL[it.unit] + "</b></div><div class=\"kv\"><span>Lasts until</span><b class=\"num\">" + K.dayLabel(t + Math.round(cover)) + " · " + K.fmtDays(cover) + "</b></div><div class=\"kv\"><span>Costs</span><b class=\"num\">" + K.kr(total) + " kr</b></div>";
-  if (saved > 0.5) h += '<div class="kv"><span>Cheaper than usual by</span><b class="num save">' + K.kr(saved) + " kr</b></div>";
+  
+  if (saved > 0.5) {
+    h += '<div class="kv"><span>Cheaper than usual by</span><b class="num save">' + K.kr(saved) + " kr</b></div>";
+  }
+  
   if (budgetLeft !== null) {
     var over = total > budgetLeft + 1e-6;
     h += '<div class="kv"><span>' + (over ? "Over budget by" : "Left in budget") + "</span><b class=\"num\"" + (over ? ' style="color:var(--gone)"' : "") + ">" + K.kr(Math.abs(budgetLeft - total)) + " kr</b></div>";
   }
-  if (sim.wasted > 0.001) h += '<div class="warn" style="margin-top:9px">About ' + K.fmtQty(sim.wasted, it.unit) + " " + K.UNIT_LABEL[it.unit] + " would pass its date before you get to it.</div>";
+  
+  if (sim.wasted > 0.001) {
+    h += '<div class="warn" style="margin-top:9px">About ' + K.fmtQty(sim.wasted, it.unit) + " " + K.UNIT_LABEL[it.unit] + " would pass its date before you get to it.</div>";
+  }
+  
   $("#buyPrev").innerHTML = h;
 }
+
 function confirmBuy() {
-  var p = SHEET.preview, it = byId(SHEET.id); if (!p || !it) return; var t = K.today();
-  for (var i = 0; i < p.packs; i++) it.lots.push({ id: uid(), qty: p.offer.pack, exp: p.expDay, open: null, bought: t, product: p.offer.name, paid: p.price });
-  it.spent = (it.spent || 0) + p.total; it.saved = (it.saved || 0) + p.saved; it.boughtQty = (it.boughtQty || 0) + p.qty; it.asOf = t;
-  S.receipts.push({ ts: Date.now(), day: t, itemId: it.id, item: it.name, store: p.offer.store, product: p.offer.name, packs: p.packs, packQty: p.offer.pack, unit: it.unit, qty: p.qty, price: p.price, total: p.total, saved: p.saved });
+  var p = SHEET.preview, it = byId(SHEET.id); 
+  if (!p || !it) return; 
+  
+  var t = K.today();
+  for (var i = 0; i < p.packs; i++) {
+    it.lots.push({ id: uid(), qty: p.offer.pack, exp: p.expDay, open: null, bought: t, product: p.offer.name, paid: p.price });
+  }
+  
+  it.spent = (it.spent || 0) + p.total; 
+  it.saved = (it.saved || 0) + p.saved; 
+  it.boughtQty = (it.boughtQty || 0) + p.qty; 
+  it.asOf = t;
+  
+  S.receipts.push({ 
+    ts: Date.now(), day: t, itemId: it.id, item: it.name, 
+    store: p.offer.store, product: p.offer.name, packs: p.packs, 
+    packQty: p.offer.pack, unit: it.unit, qty: p.qty, 
+    price: p.price, total: p.total, saved: p.saved 
+  });
+  
   if (S.receipts.length > 400) S.receipts = S.receipts.slice(-400);
-  save(); closeSheets(); toast("Logged " + p.packs + (p.packs === 1 ? " pack" : " packs") + " of " + it.name + "."); render();
+  
+  save(); 
+  closeSheets(); 
+  toast("Logged " + p.packs + (p.packs === 1 ? " pack" : " packs") + " of " + it.name + "."); 
+  render();
 }
 
 function openStock(id) {
-  var it = byId(id); if (!it) return;
+  var it = byId(id); 
+  if (!it) return;
   SHEET = { kind: "stock", id: id, exp: it.shelfLife || 30 };
-  $("#stkTitle").textContent = "Add " + it.name.toLowerCase(); $("#stkSub").textContent = "Whatever is already in the cupboard."; $("#stkQtyLabel").textContent = "How much (" + K.UNIT_NOUN[it.unit] + ")"; $("#stkQty").value = ""; $("#stkTags").innerHTML = tagsHTML(SHEET.exp); $("#stkExp").value = K.isoFromDay(K.today() + SHEET.exp);
-  stockPreview(); openSheet("#mStock"); setTimeout(function () { $("#stkQty").focus(); }, 60);
+  
+  $("#stkTitle").textContent = "Add " + it.name.toLowerCase(); 
+  $("#stkSub").textContent = "Whatever is already in the cupboard."; 
+  $("#stkQtyLabel").textContent = "How much (" + K.UNIT_NOUN[it.unit] + ")"; 
+  $("#stkQty").value = ""; 
+  $("#stkTags").innerHTML = tagsHTML(SHEET.exp); 
+  $("#stkExp").value = K.isoFromDay(K.today() + SHEET.exp);
+  
+  stockPreview(); 
+  openSheet("#mStock"); 
+  setTimeout(function () { $("#stkQty").focus(); }, 60);
 }
+
 function stockPreview() {
-  var it = byId(SHEET.id); if (!it) return; var q = num($("#stkQty").value), expDay = K.dayFromISO($("#stkExp").value);
-  if (!isFinite(q) || q <= 0) { $("#stkPrev").innerHTML = '<div class="hint" style="margin:0">Enter an amount to see how long it covers you.</div>'; return; }
+  var it = byId(SHEET.id); 
+  if (!it) return; 
+  
+  var q = num($("#stkQty").value), expDay = K.dayFromISO($("#stkExp").value);
+  if (!isFinite(q) || q <= 0) { 
+    $("#stkPrev").innerHTML = '<div class="hint" style="margin:0">Enter an amount to see how long it covers you.</div>'; 
+    return; 
+  }
+  
   var t = K.today(), lots = K.cloneLots(it.lots);
   lots.push({ qty: q, exp: expDay, open: null, bought: t, product: "" });
-  var sim = K.run(K.cloneLots(lots), K.rateOf(it), it.openLife || 0, t, t + 400, { stopWhenEmpty: true }), cover = (sim.runOut === null ? t + 400 : sim.runOut) - t;
+  
+  var sim = K.run(K.cloneLots(lots), K.rateOf(it), it.openLife || 0, t, t + 400, { stopWhenEmpty: true });
+  var cover = (sim.runOut === null ? t + 400 : sim.runOut) - t;
+  
   var h = '<div class="kv"><span>Stock becomes</span><b class="num">' + K.fmtQty(K.stockOf(it) + q, it.unit) + " " + K.UNIT_LABEL[it.unit] + "</b></div><div class=\"kv\"><span>Covers you</span><b class=\"num\">" + K.fmtDays(cover) + "</b></div>";
-  if (sim.wasted > 0.001) h += '<div class="warn" style="margin-top:9px">About ' + K.fmtQty(sim.wasted, it.unit) + " " + K.UNIT_LABEL[it.unit] + " would go off before you eat it.</div>";
-  $("#stkPrev").innerHTML = h; SHEET.preview = { qty: q, expDay: expDay };
+  if (sim.wasted > 0.001) {
+    h += '<div class="warn" style="margin-top:9px">About ' + K.fmtQty(sim.wasted, it.unit) + " " + K.UNIT_LABEL[it.unit] + " would go off before you eat it.</div>";
+  }
+  
+  $("#stkPrev").innerHTML = h; 
+  SHEET.preview = { qty: q, expDay: expDay };
 }
+
 function confirmStock() {
-  var it = byId(SHEET.id), p = SHEET.preview; if (!it || !p || !(p.qty > 0)) { toast("Enter an amount first."); return; }
+  var it = byId(SHEET.id), p = SHEET.preview; 
+  if (!it || !p || !(p.qty > 0)) { toast("Enter an amount first."); return; }
+  
   it.lots.push({ id: uid(), qty: p.qty, exp: p.expDay, open: null, bought: K.today(), product: "" });
-  it.asOf = K.today(); save(); closeSheets(); toast("Added to " + it.name.toLowerCase() + "."); render();
+  it.asOf = K.today(); 
+  save(); 
+  closeSheets(); 
+  toast("Added to " + it.name.toLowerCase() + "."); 
+  render();
 }
 
 function openItem(id) {
-  var it = id ? byId(id) : null; SHEET = { kind: "item", id: id || null, unit: it ? it.unit : "pc" };
-  $("#itemTitle").textContent = it ? it.name : "New item"; $("#itName").value = it ? it.name : ""; $("#itMonth").value = it ? it.perMonth : ""; $("#itDay").value = it && it.perMonth ? round3(K.rateOf(it)) : ""; $("#itShelf").value = it ? it.shelfLife : 30; $("#itOpen").value = it ? it.openLife : 0; $("#itCover").value = it && it.coverDays ? it.coverDays : "";
-  $("#itUnit").innerHTML = K.CANON.map(function (u) { return '<button class="tg' + (SHEET.unit === u ? " on" : "") + '" data-unit="' + u + '">' + K.UNIT_NOUN[u] + "</button>"; }).join("");
-  $("#itDeleteRow").hidden = !it; itemHint(); openSheet("#mItem"); if (!it) setTimeout(function () { $("#itName").focus(); }, 60);
+  var it = id ? byId(id) : null; 
+  SHEET = { kind: "item", id: id || null, unit: it ? it.unit : "pc" };
+  
+  $("#itemTitle").textContent = it ? it.name : "New item"; 
+  $("#itName").value = it ? it.name : ""; 
+  $("#itMonth").value = it ? it.perMonth : ""; 
+  $("#itDay").value = it && it.perMonth ? round3(K.rateOf(it)) : ""; 
+  $("#itShelf").value = it ? it.shelfLife : 30; 
+  $("#itOpen").value = it ? it.openLife : 0; 
+  $("#itCover").value = it && it.coverDays ? it.coverDays : "";
+  
+  $("#itUnit").innerHTML = K.CANON.map(function (u) { 
+    return '<button class="tg' + (SHEET.unit === u ? " on" : "") + '" data-unit="' + u + '">' + K.UNIT_NOUN[u] + "</button>"; 
+  }).join("");
+  
+  $("#itDeleteRow").hidden = !it; 
+  itemHint(); 
+  openSheet("#mItem"); 
+  if (!it) setTimeout(function () { $("#itName").focus(); }, 60);
 }
+
 function round3(v) { return Math.round(v * 1000) / 1000; }
+
 function itemHint() {
   var m = num($("#itMonth").value), u = K.UNIT_LABEL[SHEET.unit];
   $("#itRateHint").textContent = isFinite(m) && m > 0 ? "That is " + K.fmtQty(m / K.MONTH, SHEET.unit) + " " + u + " a day, " + K.fmtQty(m * 12, SHEET.unit) + " " + u + " a year." : "Type whichever number you know — the other one follows.";
 }
+
 function confirmItem() {
   var name = $("#itName").value.trim(), per = num($("#itMonth").value);
   if (!name) { toast("Give it a name."); return; }
   if (!isFinite(per) || per < 0) { toast("How much per month?"); return; }
-  var shelf = Math.max(1, Math.round(num($("#itShelf").value)) || 30), openL = Math.max(0, Math.round(num($("#itOpen").value)) || 0), cover = Math.round(num($("#itCover").value)), it = SHEET.id ? byId(SHEET.id) : null;
+  
+  var shelf = Math.max(1, Math.round(num($("#itShelf").value)) || 30);
+  var openL = Math.max(0, Math.round(num($("#itOpen").value)) || 0);
+  var cover = Math.round(num($("#itCover").value));
+  var it = SHEET.id ? byId(SHEET.id) : null;
+  
   if (!it) {
-    it = { id: uid(), name: name, unit: SHEET.unit, perMonth: per, shelfLife: shelf, openLife: openL, coverDays: isFinite(cover) && cover > 0 ? cover : null, watch: [], lots: [], asOf: K.today(), spent: 0, saved: 0, boughtQty: 0, wasted: 0 };
-    S.items.push(it); EXPANDED[it.id] = true;
+    it = { 
+      id: uid(), name: name, unit: SHEET.unit, perMonth: per, 
+      shelfLife: shelf, openLife: openL, coverDays: isFinite(cover) && cover > 0 ? cover : null, 
+      watch: [], lots: [], asOf: K.today(), spent: 0, saved: 0, boughtQty: 0, wasted: 0 
+    };
+    S.items.push(it); 
+    EXPANDED[it.id] = true;
   } else {
-    if (it.unit !== SHEET.unit && (it.lots.length || it.watch.length)) { toast("Clear the stock and lookout list before changing the unit."); return; }
-    it.name = name; it.unit = SHEET.unit; it.perMonth = per; it.shelfLife = shelf; it.openLife = openL; it.coverDays = isFinite(cover) && cover > 0 ? cover : null;
+    if (it.unit !== SHEET.unit && (it.lots.length || it.watch.length)) { 
+      toast("Clear the stock and lookout list before changing the unit."); 
+      return; 
+    }
+    it.name = name; 
+    it.unit = SHEET.unit; 
+    it.perMonth = per; 
+    it.shelfLife = shelf; 
+    it.openLife = openL; 
+    it.coverDays = isFinite(cover) && cover > 0 ? cover : null;
   }
-  save(); closeSheets(); render();
+  
+  save(); 
+  closeSheets(); 
+  render();
 }
+
 function deleteItem() {
-  var it = byId(SHEET.id); if (!it) return;
+  var it = byId(SHEET.id); 
+  if (!it) return;
   if (!confirm("Delete " + it.name + ", its stock and its lookout list?")) return;
-  S.items = S.items.filter(function (x) { return x.id !== it.id; }); save(); closeSheets(); toast(it.name + " removed."); render();
+  S.items = S.items.filter(function (x) { return x.id !== it.id; }); 
+  save(); 
+  closeSheets(); 
+  toast(it.name + " removed."); 
+  render();
 }
 
 function openReset() {
-  var m = monthTotals(); $("#resetSub").textContent = "Filing " + monthName(S.month) + ".";
+  var m = monthTotals(); 
+  $("#resetSub").textContent = "Filing " + monthName(S.month) + ".";
   var lines = S.items.filter(function (it) { return it.spent > 0 || it.boughtQty > 0; });
+  
   var h = '<div class="kv"><span>Spent</span><b class="num">' + K.kr0(m.spent) + " kr</b></div><div class=\"kv\"><span>Saved</span><b class=\"num save\">" + K.kr0(m.saved) + " kr</b></div><div class=\"kv\"><span>Purchases</span><b class=\"num\">" + S.receipts.length + "</b></div>";
-  lines.forEach(function (it) { h += '<div class="kv"><span>' + esc(it.name) + "</span><b class=\"num\">" + K.fmtQty(it.boughtQty, it.unit) + " " + K.UNIT_LABEL[it.unit] + " · " + K.kr0(it.spent) + " kr</b></div>"; });
-  $("#resetPrev").innerHTML = h; openSheet("#mReset");
+  lines.forEach(function (it) { 
+    h += '<div class="kv"><span>' + esc(it.name) + "</span><b class=\"num\">" + K.fmtQty(it.boughtQty, it.unit) + " " + K.UNIT_LABEL[it.unit] + " · " + K.kr0(it.spent) + " kr</b></div>"; 
+  });
+  
+  $("#resetPrev").innerHTML = h; 
+  openSheet("#mReset");
 }
+
 function confirmReset() {
   var m = monthTotals();
   S.archive.push({
     month: S.month, spent: m.spent, saved: m.saved, budget: m.budget,
-    items: S.items.map(function (it) { return { name: it.name, unit: it.unit, qty: it.boughtQty, spent: it.spent, saved: it.saved, wasted: it.wasted }; }).filter(function (x) { return x.qty > 0 || x.spent > 0; }),
+    items: S.items.map(function (it) { 
+      return { name: it.name, unit: it.unit, qty: it.boughtQty, spent: it.spent, saved: it.saved, wasted: it.wasted }; 
+    }).filter(function (x) { return x.qty > 0 || x.spent > 0; }),
     receipts: S.receipts.slice(),
   });
+  
   if (S.archive.length > 24) S.archive = S.archive.slice(-24);
-  S.receipts = []; S.items.forEach(function (it) { it.spent = 0; it.saved = 0; it.boughtQty = 0; it.wasted = 0; });
-  S.month = K.monthKeyOf(); save(); closeSheets(); toast("Filed. Stock and lists are untouched."); render();
+  
+  S.receipts = []; 
+  S.items.forEach(function (it) { it.spent = 0; it.saved = 0; it.boughtQty = 0; it.wasted = 0; });
+  S.month = K.monthKeyOf(); 
+  
+  save(); 
+  closeSheets(); 
+  toast("Filed. Stock and lists are untouched."); 
+  render();
 }
 
 var TAB = "today";
 function render() {
   reconcileAll();
-  $$("#p-today,#p-stock,#p-money,#p-plan").forEach(function (p) { p.classList.toggle("on", p.id === "p-" + TAB); });
-  $$("nav button").forEach(function (b) { b.classList.toggle("on", b.dataset.tab === TAB); });
+  $$("#p-today,#p-stock,#p-money,#p-plan").forEach(function (p) { 
+    p.classList.toggle("on", p.id === "p-" + TAB); 
+  });
+  $$("nav button").forEach(function (b) { 
+    b.classList.toggle("on", b.dataset.tab === TAB); 
+  });
+  
   if (TAB === "today") renderToday();
   if (TAB === "stock") renderStock();
   if (TAB === "money") renderMoney();
   if (TAB === "plan") renderPlan();
-  var titles = { today: "Today", stock: "Stock", money: "Money", plan: "Plan" }; $("#hTitle").textContent = titles[TAB];
-  var m = monthTotals(), todo = S.items.map(viewOf).filter(function (v) { return v.d.state === "out" || v.d.state === "need" || v.d.state === "deal"; });
-  var pip = $("#pip"); pip.hidden = todo.length === 0; pip.textContent = todo.length;
+  
+  var titles = { today: "Today", stock: "Stock", money: "Money", plan: "Plan" }; 
+  $("#hTitle").textContent = titles[TAB];
+  
+  var m = monthTotals();
+  var todo = S.items.map(viewOf).filter(function (v) { return v.d.state === "out" || v.d.state === "need" || v.d.state === "deal"; });
+  
+  var pip = $("#pip"); 
+  pip.hidden = todo.length === 0; 
+  pip.textContent = todo.length;
+  
   $("#hRight").textContent = m.saved > 0 ? "saved " + K.kr0(m.saved) + " kr" : "";
-  var d = new Date(); $("#hSub").textContent = TAB === "today" ? d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) : monthName(S.month);
+  var d = new Date(); 
+  $("#hSub").textContent = TAB === "today" ? d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) : monthName(S.month);
 }
 
 document.addEventListener("click", function (e) {
-  var nav = e.target.closest("nav button"); if (nav) { TAB = nav.dataset.tab; window.scrollTo(0, 0); render(); return; }
-  var modal = e.target.closest(".modal"); if (modal && e.target === modal) { closeSheets(); return; }
+  var nav = e.target.closest("nav button"); 
+  if (nav) { TAB = nav.dataset.tab; window.scrollTo(0, 0); render(); return; }
+  
+  var modal = e.target.closest(".modal"); 
+  if (modal && e.target === modal) { closeSheets(); return; }
+  
   var tg = e.target.closest("#buyTags .tg, #stkTags .tg");
   if (tg) {
     var days = +tg.dataset.days, wrap = tg.parentElement.id === "buyTags" ? "buy" : "stk";
-    $("#" + wrap + "Tags").innerHTML = tagsHTML(days); $("#" + wrap + "Exp").value = K.isoFromDay(K.today() + days);
+    $("#" + wrap + "Tags").innerHTML = tagsHTML(days); 
+    $("#" + wrap + "Exp").value = K.isoFromDay(K.today() + days);
     if (wrap === "buy") buyPreview(); else stockPreview(); return;
   }
+  
   var ut = e.target.closest("#itUnit .tg");
   if (ut) {
-    SHEET.unit = ut.dataset.unit; $("#itUnit").innerHTML = K.CANON.map(function (u) { return '<button class="tg' + (SHEET.unit === u ? " on" : "") + '" data-unit="' + u + '">' + K.UNIT_NOUN[u] + "</button>"; }).join("");
+    SHEET.unit = ut.dataset.unit; 
+    $("#itUnit").innerHTML = K.CANON.map(function (u) { return '<button class="tg' + (SHEET.unit === u ? " on" : "") + '" data-unit="' + u + '">' + K.UNIT_NOUN[u] + "</button>"; }).join("");
     itemHint(); return;
   }
-  var b = e.target.closest("[data-act]"); if (!b) return;
+  
+  var b = e.target.closest("[data-act]"); 
+  if (!b) return;
   var act = b.dataset.act, id = b.dataset.id;
+  
   if (act === "close") { closeSheets(); return; }
+  
   if (act === "toggle") {
-    EXPANDED[id] = !EXPANDED[id]; var d = $("#d-" + id);
+    EXPANDED[id] = !EXPANDED[id]; 
+    var d = $("#d-" + id);
     if (d) {
-      d.classList.toggle("on", !!EXPANDED[id]); var card = d.closest(".card");
-      if (card) { card.classList.toggle("open", !!EXPANDED[id]); var cv = card.querySelector(".chev"); if (cv) cv.textContent = EXPANDED[id] ? "⌃" : "⌄"; }
-      if (EXPANDED[id]) { var inp = $('input[data-act="search"][data-id="' + id + '"]'); if (inp) setTimeout(function () { inp.focus(); }, 80); }
+      d.classList.toggle("on", !!EXPANDED[id]); 
+      var card = d.closest(".card");
+      if (card) { 
+        card.classList.toggle("open", !!EXPANDED[id]); 
+        var cv = card.querySelector(".chev"); 
+        if (cv) cv.textContent = EXPANDED[id] ? "⌃" : "⌄"; 
+      }
+      if (EXPANDED[id]) { 
+        var inp = $('input[data-act="search"][data-id="' + id + '"]'); 
+        if (inp) setTimeout(function () { inp.focus(); }, 80); 
+      }
     }
     return;
   }
+  
   if (act === "watch") {
     var it = byId(id), key = b.dataset.key, has = it.watch.some(function (w) { return w.key === key; });
-    if (has) { it.watch = it.watch.filter(function (w) { return w.key !== key; }); } 
-    else {
+    if (has) { 
+      it.watch = it.watch.filter(function (w) { return w.key !== key; }); 
+    } else {
       var row = lookup(key), pack = num(b.dataset.pack);
       it.watch.push({ key: key, pack: isFinite(pack) && pack > 0 ? pack : 1, name: row ? row.name : key, store: row ? row.store : "", lastPrice: row ? row.price : 0, lastRegular: row ? row.regular : 0 });
       if (!(isFinite(pack) && pack > 0)) toast("Set the pack size — it could not be read.");
     }
     save();
-    var plus = b.querySelector(".plus"); if (plus) { plus.classList.toggle("on", !has); plus.textContent = has ? "+" : "✓"; }
-    var lo = $("#lo-" + id); if (lo) lo.innerHTML = lookoutHTML(viewOf(it));
+    var plus = b.querySelector(".plus"); 
+    if (plus) { plus.classList.toggle("on", !has); plus.textContent = has ? "+" : "✓"; }
+    var lo = $("#lo-" + id); 
+    if (lo) lo.innerHTML = lookoutHTML(viewOf(it));
     return;
   }
+  
   if (act === "unwatch") {
-    var it2 = byId(id); it2.watch = it2.watch.filter(function (w) { return w.key !== b.dataset.key; });
-    save(); var lo2 = $("#lo-" + id); if (lo2) lo2.innerHTML = lookoutHTML(viewOf(it2)); renderResults(id); return;
+    var it2 = byId(id); 
+    it2.watch = it2.watch.filter(function (w) { return w.key !== b.dataset.key; });
+    save(); 
+    var lo2 = $("#lo-" + id); 
+    if (lo2) lo2.innerHTML = lookoutHTML(viewOf(it2)); 
+    renderResults(id); 
+    return;
   }
+  
   if (act === "dropLot") {
-    var it3 = byId(id), kill = {}; String(b.dataset.lot).split(",").forEach(function (x) { kill[x] = true; });
-    it3.lots = it3.lots.filter(function (l) { return !kill[l.id]; }); save(); render(); return;
+    var it3 = byId(id), kill = {}; 
+    String(b.dataset.lot).split(",").forEach(function (x) { kill[x] = true; });
+    it3.lots = it3.lots.filter(function (l) { return !kill[l.id]; }); 
+    save(); 
+    render(); 
+    return;
   }
+  
   if (act === "toggleOpen") {
     var itLot = byId(id), lotId = b.dataset.lot;
     var targetLot = itLot.lots.filter(function(l) { return l.id === lotId; })[0];
-    if (targetLot) { targetLot.open = targetLot.open !== null && targetLot.open !== undefined ? null : K.today(); save(); render(); }
+    if (targetLot) { 
+      targetLot.open = targetLot.open !== null && targetLot.open !== undefined ? null : K.today(); 
+      save(); 
+      render(); 
+    }
     return;
   }
-  if (act === "openBuy") { openBuy(id); return; } if (act === "openStock") { openStock(id); return; }
-  if (act === "confirmBuy") { confirmBuy(); return; } if (act === "confirmStock") { confirmStock(); return; }
-  if (act === "newItem") { openItem(null); return; } if (act === "editItem") { openItem(id); return; }
-  if (act === "confirmItem") { confirmItem(); return; } if (act === "deleteItem") { deleteItem(); return; }
-  if (act === "openReset") { openReset(); return; } if (act === "confirmReset") { confirmReset(); return; }
+  
+  if (act === "openBuy") { openBuy(id); return; } 
+  if (act === "openStock") { openStock(id); return; }
+  if (act === "confirmBuy") { confirmBuy(); return; } 
+  if (act === "confirmStock") { confirmStock(); return; }
+  if (act === "newItem") { openItem(null); return; } 
+  if (act === "editItem") { openItem(id); return; }
+  if (act === "confirmItem") { confirmItem(); return; } 
+  if (act === "deleteItem") { deleteItem(); return; }
+  if (act === "openReset") { openReset(); return; } 
+  if (act === "confirmReset") { confirmReset(); return; }
   if (act === "refresh") { toast("Checking…"); loadCatalog(); return; }
-  if (act === "export") { doExport(); return; } if (act === "import") { $("#importFile").click(); return; }
+  if (act === "export") { doExport(); return; } 
+  if (act === "import") { $("#importFile").click(); return; }
+  
   if (act === "starter") {
-    var s = STARTERS[+b.dataset.i]; if (S.items.some(function (x) { return x.name === s.name; })) { toast(s.name + " is already there."); return; }
+    var s = STARTERS[+b.dataset.i]; 
+    if (S.items.some(function (x) { return x.name === s.name; })) { toast(s.name + " is already there."); return; }
     S.items.push({ id: uid(), name: s.name, unit: s.unit, perMonth: s.perMonth, shelfLife: s.shelfLife, openLife: s.openLife, coverDays: null, watch: [], lots: [], asOf: K.today(), spent: 0, saved: 0, boughtQty: 0, wasted: 0 });
     save(); render(); return;
   }
@@ -1470,7 +1939,8 @@ document.addEventListener("click", function (e) {
 
 document.addEventListener("keydown", function (e) {
   if (e.key !== "Enter" && e.key !== " ") return;
-  var r = e.target.closest && e.target.closest('[role="button"]'); if (!r) return;
+  var r = e.target.closest && e.target.closest('[role="button"]'); 
+  if (!r) return;
   e.preventDefault(); r.click();
 });
 
@@ -1478,7 +1948,10 @@ var searchTimer = null;
 document.addEventListener("input", function (e) {
   var t = e.target;
   if (t.dataset && t.dataset.act === "search") {
-    clearTimeout(searchTimer); var id = t.dataset.id; searchTimer = setTimeout(function () { renderResults(id); }, 180); return;
+    clearTimeout(searchTimer); 
+    var id = t.dataset.id; 
+    searchTimer = setTimeout(function () { renderResults(id); }, 180); 
+    return;
   }
   if (t.id === "buyPacks" || t.id === "buyPrice") { buyPreview(); return; }
   if (t.id === "stkQty") { stockPreview(); return; }
@@ -1488,33 +1961,53 @@ document.addEventListener("input", function (e) {
 
 document.addEventListener("change", function (e) {
   var t = e.target;
-  if (t.id === "buyProduct") { var c = currentOffer(); if (c.o) $("#buyPrice").value = c.o.price.toFixed(2); buyPreview(); return; }
-  if (t.id === "buyExp") { buyPreview(); return; } if (t.id === "stkExp") { stockPreview(); return; }
-  if (t.dataset && t.dataset.set === "pack") { return; } 
+  if (t.id === "buyProduct") { 
+    var c = currentOffer(); 
+    if (c.o) $("#buyPrice").value = c.o.price.toFixed(2); 
+    buyPreview(); 
+    return; 
+  }
+  if (t.id === "buyExp") { buyPreview(); return; } 
+  if (t.id === "stkExp") { stockPreview(); return; }
   if (t.dataset && t.dataset.act === "set") {
-    var n = num(t.value); if (isFinite(n) && n > 0) { S.settings[t.dataset.k] = n; save(); render(); }
+    var n = num(t.value); 
+    if (isFinite(n) && n > 0) { S.settings[t.dataset.k] = n; save(); render(); }
     return;
   }
 });
 
 function doExport() {
   var blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
-  var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "kurv-" + K.isoFromDay(K.today()) + ".json";
-  a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000); toast("Backup saved.");
+  var a = document.createElement("a"); 
+  a.href = URL.createObjectURL(blob); 
+  a.download = "kurv-" + K.isoFromDay(K.today()) + ".json";
+  a.click(); 
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000); 
+  toast("Backup saved.");
 }
+
 $("#importFile").addEventListener("change", function (e) {
-  var f = e.target.files[0]; if (!f) return; var fr = new FileReader();
+  var f = e.target.files[0]; 
+  if (!f) return; 
+  var fr = new FileReader();
   fr.onload = function () {
     try {
-      var d = JSON.parse(fr.result); if (!d || !Array.isArray(d.items)) throw new Error("not a Kurv backup");
+      var d = JSON.parse(fr.result); 
+      if (!d || !Array.isArray(d.items)) throw new Error("not a Kurv backup");
       if (!confirm("Replace everything on this device with the backup?")) return;
-      localStorage.setItem(LSKEY, JSON.stringify(d)); load(); render(); toast("Restored.");
+      localStorage.setItem(LSKEY, JSON.stringify(d)); 
+      load(); 
+      render(); 
+      toast("Restored.");
     } catch (err) { toast("That file is not a Kurv backup."); }
   };
-  fr.readAsText(f); e.target.value = "";
+  fr.readAsText(f); 
+  e.target.value = "";
 });
 
-load(); render(); loadCatalog();
+load(); 
+render(); 
+loadCatalog();
 document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });
 window.Kurv_app = { S: function () { return S; }, CAT: CAT, render: render, search: search, viewOf: viewOf, load: load };
 })();
