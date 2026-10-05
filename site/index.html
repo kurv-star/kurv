@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Kurv">
-<meta name="theme-color" content="#f7f5f0">
+<meta name="theme-color" content="#f8f7f4">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.png">
 <title>Kurv</title>
@@ -23,11 +23,20 @@
    prose gets out of the way.
 ------------------------------------------------------------------------ */
 :root{
-  --paper:#f7f5f0; --card:#fffdf9; --ink:#14120e; --mute:#6f6a5e;
-  --faint:#9c9689; --rule:#ddd8cb; --rule2:#eae5d9;
-  --deal:#1a6b46; --dealbg:#e8f2ec;
-  --need:#a1590f; --needbg:#f8eedf;
-  --gone:#9d2c20; --gonebg:#f8e8e5;
+  /* Cooled off and lifted. The old ground was a warm beige that pulled every
+     colour on top of it toward brown, so the greens read olive and the whole
+     thing looked muddy under a shop's lighting. This is a near-neutral paper
+     with the faintest warm cast — still not clinical white, but it no longer
+     tints what sits on it. Rules are lighter, text contrast is higher, and the
+     three functional colours are cleaner and a touch more saturated so they
+     read instantly at arm's length. Nothing was removed, only clarified. */
+  --paper:#f8f7f4; --card:#ffffff; --ink:#15171a; --mute:#5f6670;
+  --faint:#8f97a2; --rule:#e2e4e6; --rule2:#eef0f1;
+  --deal:#0f7a4a; --dealbg:#e4f4ec; --dealsoft:#7fd4a8; --ghost:#9fdcbe;
+  --need:#9a5a0b; --needbg:#fdf0dc;
+  --gone:#b02a1f; --gonebg:#fdeae7;
+  --ahead:#1f5f9e; --aheadbg:#e6f0fa;
+  --offbg:#eef0f1;
   --tap:44px;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
@@ -71,8 +80,9 @@ h2:first-child{margin-top:2px}
 
 /* ------------------------------------------------------------------- card */
 .card{
-  background:var(--card);border:1px solid var(--rule);border-radius:12px;
+  background:var(--card);border:1px solid var(--rule);border-radius:13px;
   padding:13px 14px;margin-bottom:9px;
+  box-shadow:0 1px 2px rgba(21,23,26,.035);
 }
 /* The left edge is the status. A border rather than an absolutely positioned
    pseudo-element, so nothing has to be clipped to the rounded corner. */
@@ -87,7 +97,8 @@ h2:first-child{margin-top:2px}
 .b-deal{background:var(--dealbg);color:var(--deal)}
 .b-need{background:var(--needbg);color:var(--need)}
 .b-out{background:var(--gonebg);color:var(--gone)}
-.b-off{background:#eee9dd;color:var(--mute)}
+.b-off{background:var(--offbg);color:var(--mute)}
+.b-ahead{background:var(--aheadbg);color:var(--ahead)}
 
 /* ------------------------------------------------- signature: the burn-down
    How many days of this you have left, drawn as the cupboard emptying. The
@@ -96,12 +107,30 @@ h2:first-child{margin-top:2px}
    reused live inside the buy sheet, so the preview is literally the gauge
    you were just looking at. */
 .gauge{margin:10px 0 2px}
-.track{position:relative;height:9px;background:#ece7db;border-radius:5px;overflow:hidden}
-.fill{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--ink)}
-.card.s-need .fill{background:var(--need)}
-.card.s-out .fill{background:var(--gone)}
-.ahead{position:absolute;top:0;bottom:0;border-radius:0 5px 5px 0;background:#9ecdb4}
-.notch{position:absolute;top:0;bottom:0;width:1px;background:#8e8878}
+
+/* The burn-down is a count of days, not a fraction of a thing, so it is drawn
+   as discrete pips rather than a smooth fill -- a smooth bar reads as "62% of
+   the rice", which is not what the number means. Each pip is a slice of the
+   window; the outlined one is the reorder point. */
+.pips{display:flex;gap:2px;align-items:stretch;height:11px}
+.pips i{flex:1;border-radius:2px;background:var(--rule2);min-width:2px}
+.pips i.on{background:var(--ink)}
+.card.s-need .pips i.on{background:var(--need)}
+.card.s-out .pips i.on{background:var(--gone)}
+.pips i.ghost{background:var(--ghost)}
+.pips i.mark{box-shadow:inset 0 0 0 1px var(--faint)}
+/* Past the month boundary: same bar, visibly a different month. */
+.pips i.next{opacity:.45}
+.pips i.mend{position:relative;overflow:visible}
+.pips i.mend::after{content:"";position:absolute;top:-3px;bottom:-3px;right:-2px;
+  width:1px;background:var(--faint);opacity:.75}
+
+/* Hairline above the pips: how much of this item's own month budget is gone.
+   Amber means one more pack tips it over, red means it already has. */
+.fuse{height:2px;border-radius:2px;background:var(--rule2);overflow:hidden;margin-bottom:5px}
+.fuse i{display:block;height:100%;border-radius:2px;background:var(--deal)}
+.fuse i.tip{background:var(--need)}
+.fuse i.over{background:var(--gone)}
 .gsub{display:flex;justify-content:space-between;gap:8px;margin-top:6px;
   font-size:12px;color:var(--mute)}
 .gsub .num{color:var(--ink)}
@@ -110,7 +139,7 @@ h2:first-child{margin-top:2px}
    The artifact this whole app is about. Store in the black bar, pack price
    large, price-per-unit beneath it because that is the number that actually
    decides anything. */
-.tag{border:1px solid var(--ink);border-radius:7px;margin:11px 0 0;background:#fff}
+.tag{border:1px solid var(--ink);border-radius:8px;margin:11px 0 0;background:var(--card)}
 .tag-store{background:var(--ink);color:var(--paper);font-size:9.5px;font-weight:700;
   letter-spacing:.09em;text-transform:uppercase;padding:5px 10px;
   border-radius:5px 5px 0 0;display:flex;justify-content:space-between;gap:8px}
@@ -144,19 +173,22 @@ h2:first-child{margin-top:2px}
 .btn[disabled]{opacity:.4;pointer-events:none}
 .chev{font-size:13px}
 
-.slim{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
-  padding:11px 2px;min-height:var(--tap)}
-.slim .cname{flex:none;min-width:72px;max-width:38%}
-.slim .track{flex:1;height:7px;min-width:48px}
-.slim .r{font-size:12px;color:var(--mute);flex:none;text-align:right;min-width:88px;
-  white-space:nowrap}
+.slim{display:block;width:100%;text-align:left;padding:2px 0 4px}
+.slim-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.slim-t .cname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slim .gauge{margin:8px 0 0}
+.slim .gsub{margin-top:7px}
 
 /* ------------------------------------------------------------------ fields */
 .f{margin-top:11px}
 .f label{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;color:var(--faint);margin-bottom:5px}
+textarea{-webkit-appearance:none;appearance:none;width:100%;background:#fff;
+  border:1px solid var(--rule);border-radius:8px;padding:10px 11px;font-size:14px;
+  font-family:var(--mono);line-height:1.5;resize:vertical;color:var(--ink)}
 input[type=text],input[type=number],input[type=date],input[type=search],select{
-  -webkit-appearance:none;appearance:none;width:100%;background:#fff;border:1px solid var(--rule);border-radius:8px;
+  -webkit-appearance:none;appearance:none;width:100%;background:var(--card);
+  border:1px solid var(--rule);border-radius:9px;
   padding:10px 11px;font-size:16px;min-height:var(--tap);
   font-family:var(--mono);font-variant-numeric:tabular-nums}
 input[type=text],input[type=search],select{font-family:var(--sans)}
@@ -165,7 +197,7 @@ input::placeholder{color:#b8b2a4;font-family:var(--sans)}
 .f3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
 .hint{font-size:11.5px;color:var(--faint);margin-top:5px}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
-.tg{border:1px solid var(--rule);background:#fff;border-radius:20px;padding:7px 11px;
+.tg{border:1px solid var(--rule);background:var(--card);border-radius:20px;padding:7px 11px;
   font-size:12.5px;min-height:34px;display:flex;align-items:center}
 .tg.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 
@@ -219,11 +251,27 @@ input::placeholder{color:#b8b2a4;font-family:var(--sans)}
   border-bottom:1px solid var(--rule2);font-size:13.5px}
 .kv:last-child{border-bottom:0}
 .kv span:first-child{color:var(--mute)}
-.bar{height:10px;background:#ece7db;border-radius:5px;overflow:hidden;margin:9px 0 5px;
+.bar{height:10px;background:var(--rule2);border-radius:5px;overflow:hidden;margin:9px 0 5px;
   position:relative}
 .bar i{display:block;height:100%;background:var(--ink);border-radius:5px}
 .bar i.over{background:var(--gone)}
-svg.chart{width:100%;height:150px;display:block;margin-top:4px}
+svg.chart{width:100%;height:148px;display:block;margin-top:4px}
+.sfilt{display:flex;flex-wrap:nowrap;gap:6px;margin:14px 0 0;padding:2px 2px 8px;
+  overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+  scroll-snap-type:x proximity;scrollbar-width:none}
+.sfilt::-webkit-scrollbar{display:none}
+.sfilt .tg{flex:none;scroll-snap-align:start;min-height:32px;padding:5px 12px;font-size:12px}
+
+/* lookout: the grouped-by-shop view */
+.losort{display:flex;justify-content:flex-end;margin:0 0 2px}
+.lnk{font-size:11.5px;color:var(--faint);padding:5px 2px;text-decoration:underline;
+  text-underline-offset:2px;text-decoration-color:var(--rule)}
+.lohead{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--faint);padding:10px 0 2px;border-bottom:1px solid var(--rule2)}
+
+/* how long the current price has been the current price */
+.tag-age{font-weight:600;letter-spacing:.04em;opacity:.65}
+.tag-age.fresh{opacity:1;color:var(--dealsoft)}
 .rc{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--rule2);font-size:13px}
 .rc:last-child{border-bottom:0}
 .rc-m{flex:1;min-width:0}
@@ -244,7 +292,11 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;
 nav button{flex:1;padding:9px 2px 8px;font-size:10px;letter-spacing:.05em;
   color:var(--faint);display:flex;flex-direction:column;align-items:center;gap:3px;
   min-height:56px;justify-content:center;position:relative}
-nav button .g{font-size:17px;line-height:1}
+nav button .g{width:22px;height:22px;display:block}
+nav button .g svg{width:22px;height:22px;display:block;
+  fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round}
+nav button.on .g svg{stroke-width:1.9}
 nav button.on{color:var(--ink);font-weight:640}
 nav button.on::after{content:"";position:absolute;top:0;left:26%;right:26%;height:2px;
   background:var(--ink)}
@@ -253,7 +305,7 @@ nav .pip{position:absolute;top:7px;right:calc(50% - 19px);min-width:15px;height:
   display:flex;align-items:center;justify-content:center;padding:0 4px}
 
 /* ------------------------------------------------------------------ sheet */
-.modal{position:fixed;inset:0;z-index:60;background:rgba(20,18,14,.42);
+.modal{position:fixed;inset:0;z-index:60;background:rgba(21,23,26,.44);
   display:none;align-items:flex-end;justify-content:center}
 .modal.on{display:flex}
 .sheet{background:var(--paper);width:100%;max-width:640px;
@@ -271,10 +323,10 @@ nav .pip{position:absolute;top:7px;right:calc(50% - 19px);min-width:15px;height:
   padding:10px 15px;border-radius:8px;font-size:13.5px;z-index:80;
   visibility:hidden;opacity:0;pointer-events:none;transition:opacity .18s;text-align:center}
 #toast.on{visibility:visible;opacity:1}
-.note{background:var(--needbg);border:1px solid #e6d5b8;border-radius:9px;
+.note{background:var(--needbg);border:1px solid #f0dcb8;border-radius:9px;
   padding:11px 12px;font-size:13px;margin-bottom:12px;display:flex;
   justify-content:space-between;align-items:center;gap:10px}
-.note.ok{background:var(--dealbg);border-color:#c8e0d3}
+.note.ok{background:var(--dealbg);border-color:#bfe5d2}
 </style>
 </head>
 <body>
@@ -295,10 +347,10 @@ nav .pip{position:absolute;top:7px;right:calc(50% - 19px);min-width:15px;height:
 </main>
 
 <nav>
-  <button data-tab="today" class="on"><span class="g">◎</span>Today<span class="pip" id="pip" hidden></span></button>
-  <button data-tab="stock"><span class="g">▤</span>Stock</button>
-  <button data-tab="money"><span class="g">◪</span>Money</button>
-  <button data-tab="plan"><span class="g">≡</span>Plan</button>
+  <button data-tab="today" class="on"><span class="g"><svg viewBox="0 0 22 22"><circle cx="11" cy="11" r="7.2"/><path d="M11 6.6V11l3 1.9"/></svg></span>Today<span class="pip" id="pip" hidden></span></button>
+  <button data-tab="stock"><span class="g"><svg viewBox="0 0 22 22"><rect x="3.6" y="4" width="14.8" height="14" rx="2"/><path d="M3.6 8.9h14.8M3.6 13.7h14.8M8.3 4v14"/></svg></span>Stock</button>
+  <button data-tab="money"><span class="g"><svg viewBox="0 0 22 22"><rect x="2.8" y="6" width="16.4" height="10.6" rx="2"/><circle cx="11" cy="11.3" r="2.5"/><path d="M5.6 11.3h.01M16.4 11.3h.01"/></svg></span>Money</button>
+  <button data-tab="plan"><span class="g"><svg viewBox="0 0 22 22"><path d="M4 6.2h9.5M4 11h11M4 15.8h7"/><path d="M17.2 5.2v4M15.2 7.2h4"/></svg></span>Plan</button>
 </nav>
 
 <!-- Log a purchase ------------------------------------------------------- -->
@@ -340,8 +392,15 @@ nav .pip{position:absolute;top:7px;right:calc(50% - 19px);min-width:15px;height:
     <h3 id="stkTitle">Add stock</h3>
     <div class="sub" id="stkSub"></div>
 
-    <div class="f"><label id="stkQtyLabel">Amount</label>
-      <input id="stkQty" type="number" min="0" step="0.001" inputmode="decimal"></div>
+    <div class="f2">
+      <div class="f"><label id="stkQtyLabel">Amount</label>
+        <input id="stkQty" type="number" min="0" step="0.001" inputmode="decimal"></div>
+      <div class="f"><label>What you paid</label>
+        <input id="stkPaid" type="number" min="0" step="0.01" inputmode="decimal"
+          placeholder="optional"></div>
+    </div>
+    <div class="hint" id="stkPaidHint">Leave the price blank for food you already owned —
+      it then only affects stock, not this month's money.</div>
 
     <div class="f">
       <label>Best before</label>
@@ -418,6 +477,31 @@ nav .pip{position:absolute;top:7px;right:calc(50% - 19px);min-width:15px;height:
   </div>
 </div>
 
+<!-- Plan as CSV ----------------------------------------------------------- -->
+<div class="modal" id="mPlanCSV">
+  <div class="sheet">
+    <h3>Plan as CSV</h3>
+    <div class="sub">Copy it out, or paste one in and it fills the plan.</div>
+    <div class="f">
+      <textarea id="planCSVArea" rows="10" spellcheck="false" autocapitalize="off"
+        autocorrect="off" placeholder="name,unit,per_month,shelf_life_days,open_life_days,reorder_days"></textarea>
+      <div class="hint">
+        Columns are matched by header name, so order does not matter and extra
+        columns are ignored. <b>name</b> and <b>per_month</b> are required;
+        <b>unit</b> is <span class="num">pc</span>, <span class="num">kg</span> or
+        <span class="num">L</span>. Blank <b>reorder_days</b> uses the global rule.
+        Lines starting with <span class="num">#</span> are ignored.
+      </div>
+    </div>
+    <div class="prev" id="planCSVPrev"></div>
+    <div class="row">
+      <button class="btn ghost" data-act="close">Cancel</button>
+      <button class="btn ghost" data-act="planCSVCopy">Copy</button>
+      <button class="btn" data-act="applyPlanCSV">Read it in</button>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="importFile" accept="application/json" hidden>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
@@ -446,8 +530,8 @@ var Kurv = (function () {
 
   /* ======================================================== days and dates
    * Everything internal is an integer local day number. Storing timestamps
-   * meant a session that crossed 02:00 changed day in UTC but not in
-   * Copenhagen, and the cover counts drifted by one.
+   * meant a session that crossed 02:00 changed day in UTC but not in the
+   * device's local timezone, and the cover counts drifted by one.
    */
 
   function dayOf(d) {
@@ -470,6 +554,11 @@ var Kurv = (function () {
   }
   function today() {
     return dayOf(new Date());
+  }
+  /** Day number of the last day of the month `d` falls in. */
+  function monthEndDay(d) {
+    d = d || new Date();
+    return dayOf(new Date(d.getFullYear(), d.getMonth() + 1, 0));
   }
   function monthKeyOf(d) {
     d = d || new Date();
@@ -762,6 +851,33 @@ var Kurv = (function () {
     return r;
   }
 
+  /**
+   * How much of this item you must still acquire to eat at the plan rate from
+   * `fromDay` until `toDay`, given what is actually in the cupboard.
+   *
+   * This is the sim's own shortfall, not `rate × days − stock`, because stock
+   * that expires before you can reach it must not count as covering you. Twelve
+   * eggs going off on the 20th should not quietly reduce the money you still
+   * need to spend.
+   */
+  function needBy(item, fromDay, toDay) {
+    var rate = rateOf(item);
+    if (rate <= 0 || toDay <= fromDay) return 0;
+    var openLife = item.openLife || 0;
+
+    // The lots describe the cupboard as of `item.asOf`, so a window that opens
+    // later has to be reached by eating through the days in between first —
+    // otherwise next month gets credited with food this month will already
+    // have eaten. Run from the known-good day and take only the shortfall that
+    // accrues inside the window.
+    var base = (item.asOf === null || item.asOf === undefined) ? fromDay : item.asOf;
+    if (base > fromDay) base = fromDay;
+    var all = run(cloneLots(item.lots), rate, openLife, base, toDay).short;
+    if (base === fromDay) return all;
+    var before = run(cloneLots(item.lots), rate, openLife, base, fromDay).short;
+    return Math.max(0, all - before);
+  }
+
   /** Days until the cupboard is empty, from today, at the plan rate. */
   function coverOf(item, todayDay) {
     var rate = rateOf(item);
@@ -842,16 +958,23 @@ var Kurv = (function () {
   }
 
   /**
-   * Highest regular unit price on the lookout list. Used for the monthly budget
-   * so the plan is the honest worst case: if you only ever paid the dearest
-   * normal price, this is what the month would cost.
+   * The budget baseline: the CHEAPEST regular unit price on the lookout list —
+   * what this item costs when nothing is on sale and you shop normally.
+   *
+   * It used to be the dearest regular price, which made simply shopping at the
+   * cheaper of two shops register as a "saving". Savings should mean one thing
+   * only: you caught a genuine discount against that product's own normal
+   * price. With the cheapest regular as the rail, that is exactly what they
+   * mean, and the number is smaller and truthful instead of larger and
+   * flattering. Everything is per canonical unit, so a 450 g pack and a 500 g
+   * pack are compared as kr/kg and the pack sizes never enter into it.
    */
   function budgetUnit(offs) {
-    var hi = null;
+    var lo = null;
     for (var i = 0; i < offs.length; i++) {
-      if (hi === null || offs[i].regularUnit > hi) hi = offs[i].regularUnit;
+      if (lo === null || offs[i].regularUnit < lo) lo = offs[i].regularUnit;
     }
-    return hi;
+    return lo;
   }
 
   function budgetOf(item, offs) {
@@ -920,11 +1043,30 @@ var Kurv = (function () {
       return res;
     }
 
-    // Monthly budget = plan qty × highest regular unit price on the lookout list.
+    // Two different budgets, and conflating them is what broke the old build.
+    //
+    //   budget    reporting only — the month's plan at normal prices. It tells
+    //             you where you stand; it never blocks a purchase.
+    //   allowance the actual constraint on stocking up: what is left of this
+    //             item's month, plus the headroom you have said you will go
+    //             ahead by. Without the headroom term, a great offer on the
+    //             25th gets refused because the month is nearly over, which
+    //             is precisely the behaviour this app exists to avoid.
     var budget = budUnit === null ? null : item.perMonth * budUnit;
-    var spent = Number(item.spent) || 0;
     res.budget = budget;
-    res.remaining = budget === null ? null : Math.max(0, budget - spent);
+
+    // Both rails are measured at NORMAL prices, never at what you paid. The
+    // tempting shortcut — budget minus cash spent — mixes two different units
+    // and breaks the moment you catch a discount: buy half the month's rice at
+    // half price and it reports three quarters of the budget still free, when
+    // in fact only half the month's rice is still owed. Measuring what is left
+    // as unbought QUANTITY priced normally keeps it honest, and means a sale
+    // buys you the same amount for less money rather than silently enlarging
+    // the entitlement. Buying MORE on a sale is what the headroom below is for.
+    var owed = Math.max(0, (item.perMonth || 0) - (Number(item.boughtQty) || 0));
+    res.remaining = budUnit === null ? null : owed * budUnit;
+    res.allowance = budget === null ? null
+      : res.remaining + (budget * (settings.aheadPct || 0)) / 100;
 
     // A deal is real when either (a) the cheapest unit is meaningfully below the
     // typical unit price across the lookout list, or (b) any watched product is
@@ -968,8 +1110,10 @@ var Kurv = (function () {
     // A real offer: take as much as budget and shelf life allow.
     var shelf = Number(item.shelfLife) > 0 ? Number(item.shelfLife) : 30;
     var byShelf = packsBeforeWaste(item, best, shelf, todayDay, 40);
-    var byBudget = res.remaining === null ? 40
-      : Math.floor((res.remaining + 1e-6) / best.price);
+    // Value a pack at its NORMAL price here, for the same reason as above.
+    var packNormal = best.regularUnit > 0 ? best.regularUnit * best.pack : best.price;
+    var byBudget = res.allowance === null ? 40
+      : Math.floor((res.allowance + 1e-6) / packNormal);
     var maxCover = settings.maxCover > 0 ? settings.maxCover : 120;
     var byCover = Math.max(0, Math.floor((rate * maxCover - stock) / best.pack));
 
@@ -978,7 +1122,7 @@ var Kurv = (function () {
     // most to explain. If nothing bound, say nothing.
     var capped = "";
     if (n < 40) {
-      var caps = [[byShelf, "shelf life"], [byBudget, "the budget"],
+      var caps = [[byShelf, "shelf life"], [byBudget, "your buy-ahead limit"],
                   [byCover, "your stock ceiling"]];
       caps.sort(function (a, b) { return a[0] - b[0]; });
       if (caps[0][0] === n) capped = caps[0][1];
@@ -1012,10 +1156,24 @@ var Kurv = (function () {
     res.capped = capped;
     var after = coverAfter(item, best, n, shelf, todayDay);
     res.coverAfter = after;
+
+    // Buying into next month is a good move on a real offer, but it has to be
+    // legible as a deliberate one rather than as overspending. Anything this
+    // purchase carries past the month boundary is split out and labelled.
+    var toEnd = settings.daysToMonthEnd;
+    if (isFinite(toEnd) && toEnd >= 0 && after > toEnd) {
+      res.aheadDays = after - toEnd;
+      res.aheadQty = Math.max(0, rate * res.aheadDays);
+      res.stocksAhead = res.aheadDays >= 3;
+    }
+
     res.reason =
       Math.round(offPct * 100) + "% under the usual price. " +
       n + (n === 1 ? " pack" : " packs") + " takes you to " + fmtDays(after) +
-      (capped ? ", and that is all " + capped + " allows." : ".");
+      (capped ? ", and that is all " + capped + " allows." : ".") +
+      (res.stocksAhead
+        ? " That is " + fmtDays(res.aheadDays) + " into next month — worth taking now."
+        : "");
     return res;
   }
 
@@ -1054,27 +1212,35 @@ var Kurv = (function () {
     return (v >= 10 ? v.toFixed(1) : v.toFixed(2)).replace(".", ",");
   }
 
-  function kr(v) {
+  // The currency mark lives inside these, so no call site has to remember to
+  // append it — forgetting it once is how a price ends up reading as a count.
+  // krBare is for the two places where a separate label already says "kr/stk".
+  function krBare(v) {
     if (!isFinite(v)) return "—";
     return v.toFixed(2).replace(".", ",");
   }
+  function kr(v) {
+    if (!isFinite(v)) return "—";
+    return v.toFixed(2).replace(".", ",") + " kr";
+  }
   function kr0(v) {
     if (!isFinite(v)) return "—";
-    return Math.round(v).toLocaleString("da-DK");
+    return Math.round(v).toLocaleString("da-DK") + " kr";
   }
 
   return {
     MS_DAY: MS_DAY, MONTH: MONTH, CANON: CANON,
     UNIT_LABEL: UNIT_LABEL, UNIT_NOUN: UNIT_NOUN, UNIT_PER: UNIT_PER,
     dayOf: dayOf, dayFromISO: dayFromISO, isoFromDay: isoFromDay,
-    today: today, monthKeyOf: monthKeyOf, dayLabel: dayLabel,
+    today: today, monthKeyOf: monthKeyOf, monthEndDay: monthEndDay, dayLabel: dayLabel,
     toCanon: toCanon, parsePack: parsePack,
     fold: fold, queryTerms: queryTerms, scoreName: scoreName, SYN: SYN,
     rateOf: rateOf, effExp: effExp, fefo: fefo, run: run, cloneLots: cloneLots,
     stockOf: stockOf, reconcile: reconcile, coverOf: coverOf, openLot: openLot,
     offers: offers, typicalUnit: typicalUnit, budgetUnit: budgetUnit, budgetOf: budgetOf,
+    needBy: needBy,
     packsBeforeWaste: packsBeforeWaste, decide: decide, coverAfter: coverAfter,
-    fmtDays: fmtDays, fmtQty: fmtQty, kr: kr, kr0: kr0,
+    fmtDays: fmtDays, fmtQty: fmtQty, kr: kr, kr0: kr0, krBare: krBare,
   };
 })();
 
@@ -1098,7 +1264,7 @@ var LSKEY = "kurv.v3";
 var DEFAULTS = {
   v: 3,
   month: "",
-  settings: { coverDays: 7, dealPct: 10, maxCover: 120 },
+  settings: { coverDays: 7, dealPct: 10, maxCover: 120, aheadPct: 40 },
   items: [],
   receipts: [],
   archive: [],
@@ -1253,7 +1419,7 @@ async function loadCatalog() {
 
 /* ================================================================== search */
 
-function search(q, canon, limit) {
+function search(q, canon, limit, store) {
   var groups = K.queryTerms(q);
   if (!groups.length || !CAT.ready) return [];
   var first = groups[0];
@@ -1264,6 +1430,9 @@ function search(q, canon, limit) {
     quick = false;
     for (j = 0; j < first.length; j++) if (f.indexOf(first[j]) >= 0) { quick = true; break; }
     if (!quick) continue;
+    // Narrow by store here rather than after the fact, so `limit` still means
+    // "this many results" and a filtered list is as long as an unfiltered one.
+    if (store && rowAt(i).store !== store) continue;
     s = K.scoreName(f, groups);
     if (s < 0) continue;
     hits.push([i, s]);
@@ -1316,7 +1485,9 @@ var STATE_ORDER = { out: 0, need: 1, deal: 2, ok: 3, off: 4 };
 function viewOf(it) {
   var t = K.today();
   var offs = K.offers(it, lookup);
-  var d = K.decide(it, offs, t, S.settings);
+  var cfg = Object.create(S.settings);
+  cfg.daysToMonthEnd = K.monthEndDay() - t + 1;
+  var d = K.decide(it, offs, t, cfg);
   var open = K.openLot(it, t);
   return { it: it, offs: offs, d: d, open: open, today: t,
     reorder: (isFinite(it.coverDays) && it.coverDays > 0) ? it.coverDays : S.settings.coverDays };
@@ -1324,33 +1495,90 @@ function viewOf(it) {
 
 /* ================================================================== gauge */
 
+/* One pill per day of the window, so a pill is a unit you can count rather
+ * than an arbitrary twentieth. The bar is always the full width of its card,
+ * so pills get narrower as the window gets longer -- every bar in a list is
+ * the same length, which is what makes them comparable at a glance. Capped so
+ * a 365-day pantry item does not render 365 hairlines. */
 function gauge(v, ghostDays) {
   var span = Math.max(v.reorder * 3, 30);
-  var cover = Math.min(v.d.cover, span);
-  var pct = Math.max(0, Math.min(100, (cover / span) * 100));
-  var notch = Math.min(100, (v.reorder / span) * 100);
-  var g = "";
+  var n = Math.max(10, Math.min(36, Math.round(span)));
+  var perPill = span / n;
+  var cover = Math.min(Math.max(0, v.d.cover), span);
+  // Round up, so any cover at all lights a pill -- "half a day left" showing
+  // an empty bar was the old smooth fill's worst lie.
+  var on = Math.max(v.d.cover > 0 ? 1 : 0, Math.min(n, Math.ceil(cover / perPill)));
+  var gh = 0;
   if (ghostDays && ghostDays > v.d.cover) {
-    var gp = Math.max(0, Math.min(100, (Math.min(ghostDays, span) / span) * 100));
-    g = '<i class="ahead" style="left:' + pct.toFixed(1) + '%;width:' +
-        Math.max(0, gp - pct).toFixed(1) + '%"></i>';
+    gh = Math.max(0, Math.min(n, Math.ceil(Math.min(ghostDays, span) / perPill)));
   }
-  return '<div class="track"><i class="fill" style="width:' + pct.toFixed(1) + '%"></i>' +
-    g + '<i class="notch" style="left:' + notch.toFixed(1) + '%"></i></div>';
+  var mark = Math.max(0, Math.min(n - 1, Math.ceil(v.reorder / perPill) - 1));
+
+  // Where this month ends, so stock reaching past it is visibly next month's.
+  var toEnd = K.monthEndDay() - v.today + 1;
+  var mend = toEnd < span ? Math.max(0, Math.min(n - 1, Math.ceil(toEnd / perPill) - 1)) : -1;
+
+  var out = "";
+  for (var i = 0; i < n; i++) {
+    var c = i < on ? "on" : (i < gh ? "ghost" : "");
+    if (i > mend && mend >= 0 && (i < on || i < gh)) c += (c ? " " : "") + "next";
+    if (i === mark) c += (c ? " " : "") + "mark";
+    if (i === mend) c += (c ? " " : "") + "mend";
+    out += c ? '<i class="' + c + '"></i>' : "<i></i>";
+  }
+  return '<div class="pips">' + out + "</div>";
+}
+
+/* The item's own month budget, as a hairline. Green while there is room, amber
+   when the next pack would break it, red once it is broken. Silent when the
+   item has no budget yet (nothing on the lookout list to price it from). */
+function budgetFuse(v) {
+  var d = v.d, spent = v.it.spent || 0;
+  if (d.budget === null || !(d.budget > 0)) return "";
+  var next = d.best ? d.best.price : 0;
+  var cls = spent > d.budget ? " class=\"over\""
+          : (next > 0 && spent + next > d.budget ? " class=\"tip\"" : "");
+  var pct = Math.max(0, Math.min(100, (spent / d.budget) * 100));
+  return '<div class="fuse"><i' + cls + ' style="width:' + pct.toFixed(1) + '%"></i></div>';
 }
 
 /* ================================================================ the tag */
 
+/*
+ * Is this actually a sale, or just a price that has been sitting there?
+ *
+ * The catalogue carries `since` — when the current price took effect. A 20% cut
+ * that landed on Tuesday is a sale worth acting on; the same 20% that has been
+ * unchanged since June is simply what that product costs, and treating it as
+ * urgent is how you end up with nine bags of rice you did not need.
+ *
+ * One short word, only when it says something. Nothing is printed for the
+ * ordinary middle case, which is most rows.
+ */
+function priceAge(o) {
+  if (!o || !o.since) return null;
+  var d = K.dayFromISO(o.since);
+  if (d === null) return null;
+  var age = K.today() - d;
+  if (age < 0) return null;
+  if (age <= 10) return { txt: age <= 1 ? "just now" : age + " d ago", fresh: true };
+  if (age >= 45) return { txt: "standing price", fresh: false };
+  return null;
+}
+
 function shelfTag(o, unit) {
   if (!o) return "";
   var deal = o.off >= 0.03;
+  var age = priceAge(o);
   return '<div class="tag">' +
-    '<div class="tag-store"><span>' + esc(storeLabel(o.store)) + "</span>" +
+    '<div class="tag-store"><span>' + esc(storeLabel(o.store)) +
+      (age ? ' <span class="tag-age' + (age.fresh ? " fresh" : "") + '">' +
+        esc(age.txt) + "</span>" : "") + "</span>" +
       (deal ? "<span>−" + Math.round(o.off * 100) + "%</span>" : "") + "</div>" +
     '<div class="tag-body">' +
       '<div class="tag-top">' +
         '<span class="tag-price num">' + K.kr(o.price) + "</span>" +
-        '<span class="tag-unit num">' + K.kr(o.unitPrice) + " kr/" + K.UNIT_PER[unit] + "</span>" +
+        '<span class="tag-unit num">' + K.kr(o.unitPrice) + "/" + K.UNIT_PER[unit] + "</span>" +
         (deal ? '<span class="tag-was num">' + K.kr(o.regular) + "</span>" : "") +
       "</div>" +
       '<div class="tag-name">' + esc(o.name) + " · " +
@@ -1361,6 +1589,8 @@ function shelfTag(o, unit) {
 /* ================================================================== TODAY */
 
 var EXPANDED = {};
+var SFILT = {};   // item id -> store code the lookout search is narrowed to, "" = all
+var LOSORT = {};  // item id -> "store" to group the lookout list by shop
 
 function renderToday() {
   var body = $("#todayBody");
@@ -1377,11 +1607,6 @@ function renderToday() {
 
   var html = "";
 
-  if (S.month !== K.monthKeyOf()) {
-    html += '<div class="note"><span>A new month has started. Close ' +
-      esc(monthName(S.month)) + ' to file its receipts.</span>' +
-      '<button class="btn sm" data-act="openReset">Close</button></div>';
-  }
   if (CAT.error) html += '<div class="note"><span>' + esc(CAT.error) + "</span></div>";
 
   var act = views.filter(function (v) { return v.d.state !== "ok" && v.d.state !== "off"; });
@@ -1413,12 +1638,15 @@ function cardHTML(v) {
   var cls = "card act s-" + d.state;
   var label = { out: "Out", need: "Buy one", deal: "Offer", ok: "", off: "No plan" }[d.state];
   var bcls = { out: "b-out", need: "b-need", deal: "b-deal", off: "b-off" }[d.state] || "b-off";
+  // Stocking into next month is a different decision from topping up this one,
+  // so it gets its own word rather than hiding inside "Offer".
+  if (d.state === "deal" && d.stocksAhead) { label = "Stock up"; bcls = "b-ahead"; }
 
   var h = '<div class="' + cls + '" data-id="' + it.id + '">';
   h += '<div class="chead"><div class="cname">' + esc(it.name) + "</div>" +
        '<span class="badge ' + bcls + '">' + label + "</span></div>";
 
-  h += '<div class="gauge">' + gauge(v, d.coverAfter) +
+  h += '<div class="gauge">' + budgetFuse(v) + gauge(v, d.coverAfter) +
     '<div class="gsub"><span><b class="num">' + K.fmtQty(d.stock, it.unit) + "</b> " +
     K.UNIT_LABEL[it.unit] + " left</span><span><b class=\"num\">" +
     (d.cover <= 0 ? "gone" : K.fmtDays(d.cover)) + "</b>" +
@@ -1459,23 +1687,37 @@ function cardHTML(v) {
 
 function slimHTML(v) {
   var it = v.it, d = v.d;
-  var days = d.cover <= 0 ? "gone" : K.fmtDays(d.cover);
-  var right = K.fmtQty(d.stock, it.unit) + " · " + days;
-  var h = '<div class="card" data-id="' + it.id + '" style="padding:2px 14px">';
+  var days = d.cover <= 0 ? "gone" : K.fmtDays(d.cover) + " left";
+  // Stacked rather than in a row: side by side, the bar had to share the line
+  // with a name and a number, so every row's bar came out a different length
+  // and none of them could be compared to any other.
+  var h = '<div class="card" data-id="' + it.id + '">';
   h += '<div class="slim" role="button" tabindex="0" data-act="toggle" data-id="' + it.id + '">' +
-    '<span class="cname">' + esc(it.name) + "</span>" +
-    gauge(v) +
-    '<span class="r num">' + esc(right) + "</span></div>";
-  h += '<div style="padding-bottom:10px">' + detailHTML(v) + "</div>";
+    '<div class="slim-t"><span class="cname">' + esc(it.name) + "</span>" +
+    '<span class="chev">' + (EXPANDED[it.id] ? "⌃" : "⌄") + "</span></div>" +
+    '<div class="gauge">' + budgetFuse(v) + gauge(v) + "</div>" +
+    // Never print a bare number: "0,5" on its own says nothing, "0,5 kg" does.
+    '<div class="gsub"><span><b class="num">' + esc(days) + "</b></span>" +
+    '<span><b class="num">' + K.fmtQty(d.stock, it.unit) + "</b> " +
+    K.UNIT_LABEL[it.unit] + " left</span></div>" +
+    "</div>";
+  h += detailHTML(v);
   return h + "</div>";
 }
 
 function footHTML(v) {
   var it = v.it, d = v.d;
-  var bud = d.budget === null ? "—" : K.kr0(d.budget);
+  // With nothing on the lookout list there is no normal price, so there is no
+  // budget to be a fraction of. Saying "0 kr of —" invited the reader to work
+  // out what was missing; naming it is shorter and more use.
+  if (d.budget === null) {
+    return '<div class="foot"><span>No price yet — add a product below</span>' +
+      (it.spent > 0 ? '<span class="num">' + K.kr0(it.spent) + " spent</span>" : "<span></span>") +
+      "</div>";
+  }
   return '<div class="foot"><span><b class="num">' + K.kr0(it.spent) + "</b> of " +
-    '<b class="num">' + bud + "</b> kr this month</span>" +
-    (it.saved > 0 ? '<span class="save num">saved ' + K.kr0(it.saved) + " kr</span>" : "<span></span>") +
+    '<b class="num">' + K.kr0(d.budget) + "</b> this month</span>" +
+    (it.saved > 0 ? '<span class="save num">saved ' + K.kr0(it.saved) + "</span>" : "<span></span>") +
     "</div>";
 }
 
@@ -1489,7 +1731,12 @@ function detailHTML(v) {
   h += '<h2 style="margin-top:0">Lookout list</h2>';
   h += '<div id="lo-' + it.id + '">' + lookoutHTML(v) + "</div>";
 
-  h += '<div class="f"><input type="search" placeholder="Add a product — ' +
+  // Chips sit ABOVE the field in a strip of their own. Wedged underneath they
+  // shared a box with a focused input and a list that re-renders on every
+  // keystroke, and a wrapping row changing height is what shunted the search
+  // bar around. One non-wrapping scrollable line can't change height at all.
+  h += storeChips(it.id);
+  h += '<div class="f" style="margin-top:7px"><input type="search" placeholder="Add a product — ' +
     esc(it.name.toLowerCase()) + '" data-act="search" data-id="' + it.id +
     '" autocomplete="off" autocorrect="off" spellcheck="false"></div>';
   h += '<div id="res-' + it.id + '"></div>';
@@ -1501,24 +1748,76 @@ function detailHTML(v) {
   return h + "</div>";
 }
 
+/* The store filter. Every store in the catalogue is always offered, whether or
+ * not the current query happens to hit it -- deriving the chips from the
+ * results meant they moved and vanished as you typed, and re-rendering them
+ * into the results box was what made the list jump when you tapped add. They
+ * sit outside #res- and never re-render on search. */
+function allStores() {
+  var m = CAT.meta && CAT.meta.stores;
+  if (m && m.length) return m.slice();
+  return ["rema1000", "netto", "foetex", "bilka", "lidl", "aldi", "meny"];
+}
+
+function storeChips(id) {
+  var pick = SFILT[id] || "";
+  var h = '<div class="sfilt" id="sf-' + id + '" role="group" aria-label="Filter by shop">' +
+    '<button class="tg' + (pick ? "" : " on") + '" data-act="sfilt" data-id="' + id +
+    '" data-store="">All</button>';
+  allStores().forEach(function (st) {
+    h += '<button class="tg' + (pick === st ? " on" : "") + '" data-act="sfilt" data-id="' +
+      id + '" data-store="' + esc(st) + '">' + esc(storeLabel(st)) + "</button>";
+  });
+  return h + "</div>";
+}
+
+/* The lookout list sorts cheapest-per-unit first, which is the right default
+ * because it answers "what should I buy". Grouping by store answers a different
+ * question — "I am standing in Netto, what is here" — so it is a view on the
+ * same rows, not a different ranking: the cheapest row stays marked wherever
+ * it lands. */
 function lookoutHTML(v) {
   var it = v.it, offs = v.offs;
   if (!offs.length) {
     return '<div class="hint" style="margin:0 0 4px">Nothing here yet. Search below and ' +
       "add the products you would actually buy — the cheapest one per unit always sorts first.</div>";
   }
+
+  var byStore = LOSORT[it.id] === "store";
   var h = "";
-  offs.forEach(function (o, i) {
+  if (offs.length > 1) {
+    h += '<div class="losort"><button class="lnk" data-act="losort" data-id="' + it.id + '">' +
+      (byStore ? "Grouped by shop · show cheapest first" : "Cheapest first · group by shop") +
+      "</button></div>";
+  }
+
+  var rows = offs.map(function (o, i) { return { o: o, best: i === 0 }; });
+  if (byStore) {
+    rows.sort(function (a, b) {
+      var sa = storeLabel(a.o.store), sb = storeLabel(b.o.store);
+      if (sa !== sb) return sa < sb ? -1 : 1;
+      return a.o.unitPrice - b.o.unitPrice;
+    });
+  }
+
+  var lastStore = null;
+  rows.forEach(function (r) {
+    var o = r.o, i = r.best ? 0 : 1;
+    if (byStore && o.store !== lastStore) {
+      lastStore = o.store;
+      h += '<div class="lohead">' + esc(storeLabel(o.store)) + "</div>";
+    }
     h += '<div class="lo">' +
       '<div class="lo-m"><div class="lo-n">' + (i === 0 ? '<b>' : "") + esc(o.name) +
       (i === 0 ? "</b>" : "") + "</div>" +
-      '<div class="lo-s">' + esc(storeLabel(o.store)) + " · " + K.kr(o.price) + " kr" +
+      '<div class="lo-s">' + esc(storeLabel(o.store)) + " · " + K.kr(o.price) +
       " · " + K.fmtQty(o.pack, it.unit) + " " + K.UNIT_LABEL[it.unit] +
       (o.live ? "" : " · offline") +
       (o.off >= 0.03 ? ' · <span class="best">−' + Math.round(o.off * 100) + "%</span>" : "") +
       "</div></div>" +
       '<div class="lo-p"><div class="lo-u num' + (i === 0 ? " best" : "") + '">' +
-      K.kr(o.unitPrice) + '</div><div class="lo-w">kr/' + K.UNIT_PER[it.unit] + "</div></div>" +
+      K.krBare(o.unitPrice) + '</div><div class="lo-w">kr/' + K.UNIT_PER[it.unit] +
+      "</div></div>" +
       '<button class="x" data-act="unwatch" data-id="' + it.id + '" data-key="' + esc(o.key) +
       '" aria-label="Remove">×</button></div>';
   });
@@ -1536,10 +1835,13 @@ function renderResults(id) {
     box.innerHTML = '<div class="hint">' + esc(CAT.error || "Prices are still loading…") + "</div>";
     return;
   }
-  var res = search(q, it.unit, 20);
+  var res = search(q, it.unit, 20, SFILT[id] || "");
   if (!res.length) {
-    box.innerHTML = '<div class="hint">Nothing matched. Try the Danish word — ' +
-      "the list is Danish, though most English food words are translated for you.</div>";
+    box.innerHTML = '<div class="hint">' +
+      (SFILT[id] ? "Nothing from " + esc(storeLabel(SFILT[id])) + " matched. Try All."
+                 : "Nothing matched. Try the Danish word — the list is Danish, though " +
+                   "most English food words are translated for you.") +
+      "</div>";
     return;
   }
   var watched = {};
@@ -1552,9 +1854,9 @@ function renderResults(id) {
       esc(r.row.key) + '" data-pack="' + (r.pack || "") + '">' +
       '<span class="res-m"><span class="lo-n">' + esc(r.row.name) + "</span>" +
       '<span class="lo-s">' + esc(storeLabel(r.row.store)) + " · " +
-      K.kr(r.row.price) + " kr" +
+      K.kr(r.row.price) +
       (r.pack ? " · " + K.fmtQty(r.pack, it.unit) + " " + K.UNIT_LABEL[it.unit] +
-                ' · ' + K.kr(r.unitPrice) + " kr/" + K.UNIT_PER[it.unit]
+                ' · ' + K.kr(r.unitPrice) + "/" + K.UNIT_PER[it.unit]
               : ' · size unclear') +
       (r.off >= 0.03 ? ' · −' + Math.round(r.off * 100) + "%" : "") +
       "</span></span>" +
@@ -1571,10 +1873,10 @@ var STARTERS = [
   { name: "Pasta", unit: "kg", perMonth: 3, shelfLife: 365, openLife: 0 },
   { name: "Rice", unit: "kg", perMonth: 2, shelfLife: 365, openLife: 0 },
   { name: "Chicken", unit: "kg", perMonth: 2, shelfLife: 5, openLife: 2 },
-  { name: "Bread", unit: "pc", perMonth: 8, shelfLife: 6, openLife: 4 },
+  { name: "Rugbrød", unit: "pc", perMonth: 8, shelfLife: 6, openLife: 4 },
   { name: "Butter", unit: "kg", perMonth: 0.5, shelfLife: 60, openLife: 30 },
   { name: "Cheese", unit: "kg", perMonth: 1, shelfLife: 40, openLife: 14 },
-  { name: "Oats", unit: "kg", perMonth: 2, shelfLife: 300, openLife: 0 },
+  { name: "Havregryn", unit: "kg", perMonth: 2, shelfLife: 300, openLife: 0 },
   { name: "Bananas", unit: "pc", perMonth: 30, shelfLife: 6, openLife: 0 },
   { name: "Yoghurt", unit: "kg", perMonth: 4, shelfLife: 16, openLife: 5 },
   { name: "Coffee", unit: "kg", perMonth: 0.5, shelfLife: 300, openLife: 60 },
@@ -1585,6 +1887,172 @@ function remainingStarters() {
   S.items.forEach(function (i) { have[i.name.toLowerCase()] = true; });
   return STARTERS.map(function (s, i) { return { s: s, i: i }; })
     .filter(function (x) { return !have[x.s.name.toLowerCase()]; });
+}
+
+/* -------------------------------------------------------- the plan as CSV
+ * Setting a plan up a sheet at a time is the slowest part of using this, so
+ * the whole plan is also a CSV you can paste in or copy out — same idea as
+ * the SunWatch exports. CSV rather than prose because every field is named
+ * in the header, so there is nothing to guess at and nothing to mis-read.
+ *
+ * Columns are matched by header name, not position, so column order does not
+ * matter and extra columns are ignored. Only `name` and `per_month` are
+ * required; the rest fall back to sane defaults.
+ */
+
+var CSV_COLS = ["name", "unit", "per_month", "shelf_life_days", "open_life_days", "reorder_days"];
+
+// Split one CSV line, honouring "quoted, fields" and "" escapes.
+function csvSplit(line) {
+  var out = [], cur = "", q = false, i, c;
+  for (i = 0; i < line.length; i++) {
+    c = line.charAt(i);
+    if (q) {
+      if (c === '"') {
+        if (line.charAt(i + 1) === '"') { cur += '"'; i++; } else q = false;
+      } else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === "," || c === ";" || c === "\t") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out.map(function (x) { return x.trim(); });
+}
+
+function csvCell(v) {
+  var t = String(v == null ? "" : v);
+  return /[",;\t\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
+
+var CSV_UNITS = {
+  pc: "pc", pcs: "pc", piece: "pc", pieces: "pc", stk: "pc", styk: "pc",
+  unit: "pc", units: "pc", ea: "pc", each: "pc", pk: "pc", pakke: "pc",
+  kg: "kg", kgs: "kg", kilo: "kg", kilos: "kg", kilogram: "kg", kilograms: "kg",
+  l: "L", litre: "L", litres: "L", liter: "L", liters: "L",
+};
+
+function parsePlanCSV(txt) {
+  var lines = String(txt || "").split(/\r?\n/).filter(function (l) {
+    return l.trim() && l.trim().charAt(0) !== "#";
+  });
+  if (!lines.length) return { items: [], bad: 0, cols: null };
+
+  // A header is only a header if it actually names columns we know — otherwise
+  // the first row is data and we fall back to canonical column order.
+  var first = csvSplit(lines[0]).map(function (h) {
+    return h.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  });
+  var idx = {}, seen = 0;
+  first.forEach(function (h, i) {
+    var k = { item: "name", product: "name", qty: "per_month", amount: "per_month",
+              per_month: "per_month", monthly: "per_month", month: "per_month",
+              shelf_life: "shelf_life_days", keeps: "shelf_life_days",
+              shelf_life_days: "shelf_life_days", open_life: "open_life_days",
+              open_life_days: "open_life_days", once_open: "open_life_days",
+              reorder: "reorder_days", reorder_days: "reorder_days",
+              name: "name", unit: "unit", units: "unit" }[h];
+    if (k && !(k in idx)) { idx[k] = i; seen++; }
+  });
+
+  var body;
+  if (seen >= 2 && "name" in idx) { body = lines.slice(1); }
+  else { idx = {}; CSV_COLS.forEach(function (c, i) { idx[c] = i; }); body = lines; }
+
+  var out = [], bad = 0;
+  body.forEach(function (line) {
+    var f = csvSplit(line);
+    var get = function (k) { return idx[k] === undefined ? "" : (f[idx[k]] || ""); };
+
+    var name = get("name").replace(/\s+/g, " ").slice(0, 40);
+    var per = parseFloat(get("per_month").replace(",", "."));
+    if (!name || !isFinite(per) || per <= 0) { bad++; return; }
+
+    var unit = CSV_UNITS[get("unit").toLowerCase()] || "pc";
+    var shelf = Math.round(parseFloat(get("shelf_life_days")));
+    var open = Math.round(parseFloat(get("open_life_days")));
+    var reo = Math.round(parseFloat(get("reorder_days")));
+
+    out.push({
+      name: name,
+      unit: unit,
+      perMonth: Math.round(per * 1000) / 1000,
+      shelfLife: isFinite(shelf) && shelf >= 1 ? Math.min(3650, shelf) : 30,
+      openLife: isFinite(open) && open >= 0 ? Math.min(3650, open) : 0,
+      coverDays: isFinite(reo) && reo >= 1 ? Math.min(365, reo) : null,
+    });
+  });
+  return { items: out, bad: bad, cols: idx };
+}
+
+function planToCSV() {
+  var h = CSV_COLS.join(",");
+  return h + "\n" + S.items.map(function (it) {
+    return [it.name, K.UNIT_PER[it.unit], it.perMonth, it.shelfLife, it.openLife,
+            it.coverDays == null ? "" : it.coverDays].map(csvCell).join(",");
+  }).join("\n");
+}
+
+function openPlanCSV() {
+  $("#planCSVArea").value = planToCSV();
+  openSheet("#mPlanCSV");
+  previewPlanCSV();
+}
+
+function previewPlanCSV() {
+  var box = $("#planCSVPrev");
+  if (!box) return;
+  var r = parsePlanCSV($("#planCSVArea").value);
+  if (!r.items.length) {
+    box.innerHTML = '<div class="hint">No rows read yet.' +
+      (r.bad ? " " + r.bad + (r.bad === 1 ? " row" : " rows") + " skipped." : "") + "</div>";
+    return;
+  }
+  // Show what was understood before committing: a header-matched parse can
+  // still land a value in the wrong field, and every number downstream
+  // depends on these six.
+  var h = '<div class="hint" style="margin-bottom:6px">' + r.items.length +
+    (r.items.length === 1 ? " row" : " rows") +
+    (r.bad ? ", " + r.bad + " skipped" : "") + ":</div>";
+  r.items.slice(0, 30).forEach(function (x) {
+    var dup = S.items.some(function (y) { return y.name.toLowerCase() === x.name.toLowerCase(); });
+    h += '<div class="kv"><span>' + esc(x.name) + (dup ? " · updates" : "") + "</span>" +
+      '<b class="num">' + K.fmtQty(x.perMonth, x.unit) + " " + K.UNIT_PER[x.unit] +
+      " · " + x.shelfLife + "d" + (x.openLife > 0 ? "/" + x.openLife + "d" : "") +
+      (x.coverDays ? " · re " + x.coverDays + "d" : "") + "</b></div>";
+  });
+  box.innerHTML = h;
+}
+
+function applyPlanCSV() {
+  var r = parsePlanCSV($("#planCSVArea").value);
+  if (!r.items.length) { toast("No usable rows."); return; }
+
+  var added = 0, updated = 0, wiped = 0;
+  r.items.forEach(function (x) {
+    var ex = null;
+    for (var i = 0; i < S.items.length; i++) {
+      if (S.items[i].name.toLowerCase() === x.name.toLowerCase()) { ex = S.items[i]; break; }
+    }
+    if (ex) {
+      // A unit change invalidates every quantity already recorded against the
+      // item, so stock and lookout go — the same rule the edit sheet has.
+      if (ex.unit !== x.unit) { ex.unit = x.unit; ex.lots = []; ex.watch = []; wiped++; }
+      ex.perMonth = x.perMonth;
+      ex.shelfLife = x.shelfLife;
+      ex.openLife = x.openLife;
+      ex.coverDays = x.coverDays;
+      updated++;
+    } else {
+      S.items.push({ id: uid(), name: x.name, unit: x.unit, perMonth: x.perMonth,
+        shelfLife: x.shelfLife, openLife: x.openLife, coverDays: x.coverDays,
+        watch: [], lots: [], asOf: K.today(), spent: 0, saved: 0, boughtQty: 0, wasted: 0 });
+      added++;
+    }
+  });
+
+  save(); closeSheets(); render();
+  toast([added ? added + " added" : "", updated ? updated + " updated" : "",
+         wiped ? wiped + " cleared" : ""].filter(Boolean).join(", ") + ".");
 }
 
 function starterChips() {
@@ -1620,8 +2088,10 @@ function renderStock() {
   views.sort(function (a, b) { return a.d.cover - b.d.cover; });
 
   var h = '<div class="hint" style="margin:0 0 12px">Tap a pack to mark it open or sealed. ' +
-    "An open pack uses the shorter once-opened date; sealed packs keep their full date. " +
-    "Opened packs are finished first.</div>";
+    "An open pack uses the shorter once-opened date; sealed packs keep their full date, " +
+    "and open ones are finished first. You do not need to tell the app you ate something — " +
+    "it already eats at your plan rate every day. Use <b>✓</b> only when a pack went faster " +
+    "than planned, and <b>×</b> when you threw it out.</div>";
 
   views.forEach(function (v) {
     var it = v.it;
@@ -1668,8 +2138,10 @@ function renderStock() {
           (cut ? " (cut short by opening)" : "") +
           (g.product ? " · " + esc(g.product) : "") +
           "</div></div>" +
+          '<button class="x" data-act="usedLot" data-id="' + it.id + '" data-lot="' +
+          esc(g.ids.join(",")) + '" title="Finished it" aria-label="Finished">✓</button>' +
           '<button class="x" data-act="dropLot" data-id="' + it.id + '" data-lot="' +
-          esc(g.ids.join(",")) + '" aria-label="Remove">×</button></div>';
+          esc(g.ids.join(",")) + '" title="Threw it out" aria-label="Threw out">×</button></div>';
       });
     }
     h += '<div class="row"><button class="btn ghost" data-act="openStock" data-id="' + it.id +
@@ -1700,19 +2172,51 @@ function monthBounds() {
            dayIn: now.getDate() };
 }
 
+/*
+ * The month in four numbers, and one rule that makes them reconcile:
+ * BUDGET RAILS NEVER USE SALE PRICES. A discounted purchase consumes its
+ * normal-price value from the budget, and the discount shows up as saving.
+ * That way `saved` is a subtraction that always balances rather than a
+ * separate tally that can drift away from the other three.
+ *
+ *   plan       the whole month at normal prices — what you set, fixed
+ *   toBuy      normal-price cost of what you must STILL acquire to eat to
+ *              month end, given what is in the cupboard right now. This is
+ *              the number that answers "what is the rest of the month?" and
+ *              it falls as you shop AND as the cupboard covers you.
+ *   spent      actual cash out
+ *   saved      normal-price value of what you bought, minus the cash
+ *
+ * `toBuy` comes from the simulation, so stock that will expire before you can
+ * eat it does not count as covering you, and it needs no cross-month ledger:
+ * on the 1st it simply sees last month's leftovers and opens lower.
+ */
 function monthTotals() {
-  var budget = 0, spent = 0, saved = 0, left = 0;
+  var t = K.today();
+  var monthEnd = K.monthEndDay() + 1;
+  var plan = 0, spent = 0, saved = 0, toBuy = 0, ahead = 0, unpriced = 0;
+
   S.items.forEach(function (it) {
     var offs = K.offers(it, lookup);
-    var b = K.budgetOf(it, offs);
-    if (b !== null) budget += b;
+    var unit = K.budgetUnit(offs);          // cheapest regular, per canonical unit
     spent += it.spent || 0;
     saved += it.saved || 0;
-    // Remaining plan qty at the highest regular unit price (honest worst case).
-    var hi = K.budgetUnit(offs);
-    if (hi !== null) left += Math.max(0, (it.perMonth || 0) - (it.boughtQty || 0)) * hi;
+    if (unit === null) { if (it.perMonth > 0) unpriced++; return; }
+
+    plan += (it.perMonth || 0) * unit;
+    toBuy += K.needBy(it, t, monthEnd) * unit;
+
+    // Stock reaching past month end, valued at normal prices: money already
+    // laid out against a future month, not overspend on this one.
+    var cover = K.coverOf(it, t);
+    var daysPast = Math.max(0, cover - (monthEnd - t));
+    ahead += Math.min(daysPast, 400) * K.rateOf(it) * unit;
   });
-  return { budget: budget, spent: spent, saved: saved, left: left, projected: spent + left };
+
+  return { plan: plan, budget: plan, toBuy: toBuy, spent: spent, saved: saved,
+           ahead: ahead, unpriced: unpriced,
+           // Where the month lands if the rest is bought at normal prices.
+           projected: spent + toBuy };
 }
 
 function renderMoney() {
@@ -1721,38 +2225,56 @@ function renderMoney() {
   var b = monthBounds();
 
   var h = "";
-  if (S.month !== K.monthKeyOf()) {
-    h += '<div class="note"><span>' + esc(monthName(S.month)) +
-      ' is over.</span><button class="btn sm" data-act="openReset">Close it</button></div>';
-  }
+  // The month's shape in one card: the plan, what the cupboard and your
+  // shopping have already taken care of, and what is genuinely still ahead.
+  // The headline is what is left to spend, because that is the number you act
+  // on in a shop -- savings are the reward, not the question.
+  var pctDone = m.plan > 0 ? Math.min(100, ((m.plan - m.toBuy) / m.plan) * 100) : 0;
+  var daysLeft = Math.max(0, K.monthEndDay() - K.today() + 1);
 
-  h += '<div class="card"><div class="hsub" style="margin:0 0 6px">Saved so far in ' +
-    esc(monthName(S.month)) + "</div>" +
-    '<div class="big" style="color:var(--deal)">' + K.kr0(m.saved) + " <small>kr</small></div>" +
-    '<div class="hint" style="margin-top:8px">Each purchase: usual pack price minus what you ' +
-    "paid. A 40&nbsp;kr pack bought for 20&nbsp;kr saves 20&nbsp;kr. Summed over the month.</div></div>";
+  h += '<div class="card">' +
+    '<div class="hsub" style="margin:0 0 6px">Still to spend in ' +
+      esc(monthName(S.month)) + " · " + daysLeft + (daysLeft === 1 ? " day" : " days") +
+      " left</div>" +
+    '<div class="big">' + K.kr0(m.toBuy) + "</div>" +
+    '<div class="bar" style="margin-top:12px"><i style="width:' + pctDone.toFixed(1) +
+      '%"></i></div>' +
+    '<div class="gsub"><span><b class="num">' + K.kr0(Math.max(0, m.plan - m.toBuy)) +
+      "</b> already covered</span><span>of <b class=\"num\">" + K.kr0(m.plan) +
+      "</b> planned</span></div>" +
+    '<div class="hint" style="margin-top:10px">Your plan at normal prices is <b>' +
+      K.kr0(m.plan) + "</b>. What is in the cupboard plus what you have already " +
+      "bought covers the rest, so this is the honest remainder — it falls as you " +
+      "shop and as stock carries you." +
+      (m.unpriced
+        ? " <b>" + (m.unpriced === 1 ? "One item has no price yet" : m.unpriced +
+            " items have no prices yet") + "</b>, so " +
+          (m.unpriced === 1 ? "it is" : "they are") + " missing from these figures — " +
+          "add a product to each lookout list to bring " +
+          (m.unpriced === 1 ? "it" : "them") + " in."
+        : "") +
+      "</div></div>";
 
-  var pct = m.budget > 0 ? Math.min(100, (m.spent / m.budget) * 100) : 0;
-  h += '<div class="card"><div class="kv"><span>Spent</span><b class="num">' +
-    K.kr0(m.spent) + " kr</b></div>" +
-    '<div class="bar"><i class="' + (m.spent > m.budget ? "over" : "") +
-    '" style="width:' + pct.toFixed(1) + '%"></i></div>' +
-    '<div class="kv"><span>The plan at normal prices</span><b class="num">' +
-    K.kr0(m.budget) + " kr</b></div>" +
-    '<div class="kv"><span>Still to buy this month</span><b class="num">' +
-    K.kr0(m.left) + " kr</b></div>" +
-    '<div class="kv"><span>Month should land near</span><b class="num">' +
-    K.kr0(m.projected) + " kr</b></div>" +
-    '<div class="hint" style="margin-top:8px">Budget = monthly plan qty × highest regular ' +
-    "unit price on each lookout list. Projection assumes the rest is bought at that rate; " +
-    "every discount you take pulls the solid line down.</div></div>";
+  h += '<div class="card">' +
+    '<div class="kv"><span>Spent so far</span><b class="num">' + K.kr0(m.spent) + "</b></div>" +
+    '<div class="kv"><span>Saved by catching offers</span><b class="num save">' +
+      K.kr0(m.saved) + "</b></div>" +
+    (m.ahead > 1
+      ? '<div class="kv"><span>Of that, stocked into next month</span><b class="num">' +
+        K.kr0(m.ahead) + "</b></div>"
+      : "") +
+    '<div class="kv"><span>Month lands near</span><b class="num">' +
+      K.kr0(m.projected) + "</b></div>" +
+    '<div class="hint" style="margin-top:8px">Budget figures never use sale prices: a ' +
+      "discounted buy still uses up its normal-price share, and the discount shows " +
+      "here as saving. Stocking ahead is money moved to next month, not overspend — " +
+      "next month opens lower by that much.</div></div>";
 
-  h += "<h2>Through the month</h2>";
-  h += '<div class="card">' + chartSVG(m, b) +
-    '<div class="hint" style="margin-top:6px">' +
-    '<span style="color:var(--mute)">Dashed</span> is the plan at normal prices. ' +
-    '<span style="color:var(--ink)">Solid</span> is what you actually spent. ' +
-    "The gap between them is the saving.</div></div>";
+  h += "<h2>Every purchase</h2>";
+  h += '<div class="card">' + savingsSVG() +
+    '<div class="hint" style="margin-top:6px">Two lines, stepping at each purchase: ' +
+    '<span style="color:var(--mute)">what it would have cost</span> at normal prices, and ' +
+    '<span style="color:var(--ink)">what you paid</span>. The gap is the saving.</div></div>';
 
   var rs = S.receipts.slice().sort(function (a, b2) { return b2.ts - a.ts; });
   h += "<h2>" + (rs.length ? "Receipts" : "No purchases yet") + "</h2>";
@@ -1782,7 +2304,7 @@ function renderMoney() {
       h += '<div class="rc"><div class="rc-m"><div>' + esc(monthName(a.month)) + "</div>" +
         '<div class="rc-s">' + a.receipts.length +
         (a.receipts.length === 1 ? " purchase" : " purchases") + "</div></div>" +
-        '<div class="rc-p"><div class="num">' + K.kr0(a.spent) + " kr</div>" +
+        '<div class="rc-p"><div class="num">' + K.kr0(a.spent) + "</div>" +
         (a.saved > 0.5 ? '<div class="save num">−' + K.kr0(a.saved) + "</div>" : "") +
         "</div></div>";
     });
@@ -1791,71 +2313,77 @@ function renderMoney() {
   body.innerHTML = h;
 }
 
-function chartSVG(m, b) {
-  var W = 320, H = 150, PL = 40, PR = 8, PT = 10, PB = 20;
+/* Two step lines against purchase number, not against the calendar. One point
+ * per purchase on each line: what the same baskets would have cost at normal
+ * prices, and what they actually cost. Both start at zero and only ever rise,
+ * so the widening gap between them IS the running saving — no shaded area to
+ * interpret, no projection line pretending to know the future. */
+function savingsSVG() {
+  var rs = S.receipts.slice().sort(function (a, b) { return a.ts - b.ts; });
+  if (!rs.length) {
+    return '<div class="hint">Nothing bought yet this month. Each purchase you log ' +
+      "adds a step to both lines.</div>";
+  }
+
+  var W = 320, H = 148, PL = 40, PR = 10, PT = 10, PB = 20;
   var iw = W - PL - PR, ih = H - PT - PB;
-  var top = Math.max(m.budget, m.projected, m.spent, 1) * 1.12;
-  var x = function (d) { return PL + (iw * (d - 1)) / Math.max(1, b.days - 1); };
+
+  // Cumulative pairs. r.saved is already (normal − paid) for that basket, so
+  // normal is paid + saved and the two rails stay consistent by construction.
+  var pts = [[0, 0, 0]], paid = 0, full = 0;
+  rs.forEach(function (r, i) {
+    paid += r.total;
+    full += r.total + (r.saved > 0 ? r.saved : 0);
+    pts.push([i + 1, paid, full]);
+  });
+
+  var n = pts.length - 1;
+  var top = Math.max(full, paid, 1) * 1.1;
+  var x = function (i) { return PL + (n === 0 ? 0 : (iw * i) / n); };
   var y = function (v) { return PT + ih - (ih * v) / top; };
 
-  // cumulative actual spend by day of month
-  var byDay = new Array(b.days + 1).fill(0);
-  S.receipts.forEach(function (r) {
-    var dd = new Date(r.ts).getDate();
-    if (dd >= 1 && dd <= b.days) byDay[dd] += r.total;
-  });
-  var cum = [], run = 0;
-  for (var i = 1; i <= b.dayIn; i++) { run += byDay[i]; cum.push([i, run]); }
-
   var g = "";
-  // horizontal guides
   [0, 0.5, 1].forEach(function (f) {
-    var v = top * f;
-    g += '<line x1="' + PL + '" x2="' + (W - PR) + '" y1="' + y(v).toFixed(1) +
-      '" y2="' + y(v).toFixed(1) + '" stroke="#e6e1d5" stroke-width="1"/>' +
+    var v = top * f, yy = y(v).toFixed(1);
+    g += '<line x1="' + PL + '" x2="' + (W - PR) + '" y1="' + yy + '" y2="' + yy +
+      '" stroke="#e8eaec" stroke-width="1"/>' +
       '<text x="' + (PL - 5) + '" y="' + (y(v) + 3.5).toFixed(1) +
-      '" text-anchor="end" font-size="8.5" fill="#9c9689" font-family="ui-monospace,monospace">' +
-      Math.round(v) + "</text>";
+      '" text-anchor="end" font-size="8.5" fill="#8f97a2" ' +
+      'font-family="ui-monospace,monospace">' + Math.round(v) + "</text>";
   });
 
-  // the plan at normal prices, spread evenly — the line you are trying to beat
-  g += '<line x1="' + x(1) + '" y1="' + y(0).toFixed(1) + '" x2="' + x(b.days) +
-    '" y2="' + y(m.budget).toFixed(1) +
-    '" stroke="#6f6a5e" stroke-width="1.4" stroke-dasharray="4 3"/>';
-
-  // shade the gap between plan-pace and actual, which is the saving so far
-  if (cum.length > 1) {
-    var area = "M" + x(1) + "," + y(0).toFixed(1);
-    cum.forEach(function (p) { area += " L" + x(p[0]).toFixed(1) + "," + y(p[1]).toFixed(1); });
-    for (var j = cum.length - 1; j >= 0; j--) {
-      var d0 = cum[j][0];
-      area += " L" + x(d0).toFixed(1) + "," + y((m.budget * (d0 - 1)) / (b.days - 1)).toFixed(1);
+  // Step paths: hold the level, then jump at the purchase. A straight join
+  // would imply the money trickled out between shops, which it did not.
+  var step = function (k) {
+    var d = "M" + x(0).toFixed(1) + "," + y(pts[0][k]).toFixed(1);
+    for (var i = 1; i < pts.length; i++) {
+      d += " L" + x(i).toFixed(1) + "," + y(pts[i - 1][k]).toFixed(1) +
+           " L" + x(i).toFixed(1) + "," + y(pts[i][k]).toFixed(1);
     }
-    g += '<path d="' + area + ' Z" fill="#1a6b46" opacity="0.10"/>';
+    return d;
+  };
+
+  g += '<path d="' + step(2) + '" fill="none" stroke="#8f97a2" stroke-width="1.4" ' +
+    'stroke-dasharray="4 3"/>';
+  g += '<path d="' + step(1) + '" fill="none" stroke="#15171a" stroke-width="2" ' +
+    'stroke-linejoin="round"/>';
+
+  var last = pts[pts.length - 1];
+  g += '<circle cx="' + x(n).toFixed(1) + '" cy="' + y(last[1]).toFixed(1) +
+    '" r="3" fill="#15171a"/>';
+  if (last[2] > last[1] + 0.5) {
+    g += '<circle cx="' + x(n).toFixed(1) + '" cy="' + y(last[2]).toFixed(1) +
+      '" r="2.5" fill="#8f97a2"/>';
   }
 
-  // actual spend
-  if (cum.length) {
-    var line = "M" + x(cum[0][0]).toFixed(1) + "," + y(cum[0][1]).toFixed(1);
-    cum.forEach(function (p) { line += " L" + x(p[0]).toFixed(1) + "," + y(p[1]).toFixed(1); });
-    g += '<path d="' + line + '" fill="none" stroke="#14120e" stroke-width="2" ' +
-      'stroke-linejoin="round" stroke-linecap="round"/>';
-    var last = cum[cum.length - 1];
-    // where it lands if nothing else goes on offer
-    g += '<path d="M' + x(last[0]).toFixed(1) + "," + y(last[1]).toFixed(1) +
-      " L" + x(b.days).toFixed(1) + "," + y(m.projected).toFixed(1) +
-      '" fill="none" stroke="#14120e" stroke-width="1.4" stroke-dasharray="3 3" opacity="0.5"/>';
-    g += '<circle cx="' + x(last[0]).toFixed(1) + '" cy="' + y(last[1]).toFixed(1) +
-      '" r="3" fill="#14120e"/>';
-  }
-
-  g += '<text x="' + PL + '" y="' + (H - 6) + '" font-size="8.5" fill="#9c9689">1</text>' +
+  g += '<text x="' + PL + '" y="' + (H - 6) + '" font-size="8.5" fill="#8f97a2">1</text>' +
     '<text x="' + (W - PR) + '" y="' + (H - 6) +
-    '" font-size="8.5" fill="#9c9689" text-anchor="end">' + b.days + "</text>";
+    '" font-size="8.5" fill="#8f97a2" text-anchor="end">' + n +
+    (n === 1 ? " buy" : " buys") + "</text>";
 
   return '<svg class="chart" viewBox="0 0 ' + W + " " + H +
-    '" preserveAspectRatio="none" role="img" aria-label="Spending against the plan">' +
-    g + "</svg>";
+    '" preserveAspectRatio="none" role="img" ' +
+    'aria-label="What each purchase cost against its normal price">' + g + "</svg>";
 }
 
 /* =================================================================== PLAN */
@@ -1900,7 +2428,13 @@ function renderPlan() {
   h += '<div class="f"><label>Never stock more than</label>' +
     '<input type="number" min="7" step="1" inputmode="numeric" value="' + S.settings.maxCover +
     '" data-act="set" data-k="maxCover"><div class="hint">Days of supply, however good ' +
-    "the offer is.</div></div></div>";
+    "the offer is.</div></div>";
+  h += '<div class="f"><label>On a real offer, buy ahead by</label>' +
+    '<input type="number" min="0" max="300" step="5" inputmode="numeric" value="' +
+    S.settings.aheadPct + '" data-act="set" data-k="aheadPct" data-zero="1">' +
+    '<div class="hint">Percent of an item\'s monthly budget you will go beyond this ' +
+    "month to catch a genuine sale. This is the only budget that ever blocks a " +
+    "purchase — the Money tab's figures just report. Set 0 to never buy ahead.</div></div></div>";
 
   h += "<h2>Prices</h2><div class=\"card\">";
   if (CAT.ready) {
@@ -1919,7 +2453,11 @@ function renderPlan() {
     '<div class="hint" style="margin:0 0 10px">Everything lives on this device only. ' +
     "Nothing is uploaded. Keep a copy somewhere if you care about it.</div>" +
     '<div class="row"><button class="btn ghost" data-act="export" style="flex:1">Save a backup</button>' +
-    '<button class="btn ghost" data-act="import" style="flex:1">Restore</button></div></div>';
+    '<button class="btn ghost" data-act="import" style="flex:1">Restore</button></div>' +
+    '<div class="row"><button class="btn ghost" data-act="openPlanCSV" style="flex:1">' +
+    "Plan as CSV</button></div>" +
+    '<div class="hint" style="margin-top:8px">Paste the whole monthly plan in as a CSV ' +
+    "instead of filling in a sheet per item, or copy it out to keep elsewhere.</div></div>";
 
   body.innerHTML = h;
 }
@@ -1989,7 +2527,7 @@ function openBuy(id) {
 
   $("#buyProduct").innerHTML = v.offs.map(function (o, i) {
     return '<option value="' + esc(o.key) + '"' + (i === 0 ? " selected" : "") + ">" +
-      esc(storeLabel(o.store)) + " · " + esc(o.name) + " · " + K.kr(o.price) + " kr</option>";
+      esc(storeLabel(o.store)) + " · " + esc(o.name) + " · " + K.kr(o.price) + "</option>";
   }).join("");
 
   $("#buyPacks").value = Math.max(1, v.d.packs || 1);
@@ -2044,17 +2582,28 @@ function buyPreview() {
     K.UNIT_LABEL[it.unit] + "</b></div>" +
     '<div class="kv"><span>Lasts until</span><b class="num">' +
     K.dayLabel(t + Math.round(cover)) + " · " + K.fmtDays(cover) + "</b></div>" +
-    '<div class="kv"><span>Costs</span><b class="num">' + K.kr(total) + " kr</b></div>";
+    '<div class="kv"><span>Costs</span><b class="num">' + K.kr(total) + "</b></div>";
   if (saved > 0.5) {
     h += '<div class="kv"><span>Cheaper than usual by</span><b class="num save">' +
-      K.kr(saved) + " kr</b></div>";
+      K.kr(saved) + "</b></div>";
   }
   if (budgetLeft !== null) {
-    var over = total > budgetLeft + 1e-6;
-    h += '<div class="kv"><span>' + (over ? "Over this month's " + esc(it.name.toLowerCase()) +
-      " budget by" : "Left in the budget after") + "</span><b class=\"num\"" +
-      (over ? ' style="color:var(--gone)"' : "") + ">" +
-      K.kr(Math.abs(budgetLeft - total)) + " kr</b></div>";
+    // The budget is measured at normal prices, so this purchase has to be
+    // measured the same way before the two are compared. Setting the cash paid
+    // against a normal-price budget made every discount look like free room
+    // and would happily report money left over on a month already fully bought.
+    var packNormal = c.o.regularUnit > 0 ? c.o.regularUnit * c.o.pack : c.o.price;
+    var normalValue = packs * packNormal;
+    var over = normalValue > budgetLeft + 1e-6;
+    h += '<div class="kv"><span>' +
+      (over ? "Buys into next month by" : "Left in this month's " +
+        esc(it.name.toLowerCase()) + " budget") +
+      '</span><b class="num"' + (over ? ' style="color:var(--ahead)"' : "") + ">" +
+      K.kr(Math.abs(normalValue - budgetLeft)) + "</b></div>";
+    if (over) {
+      h += '<div class="hint" style="margin-top:6px">That is the point of a real offer — ' +
+        "it comes off next month's budget, not this one's.</div>";
+    }
   }
   if (sim.wasted > 0.001) {
     h += '<div class="warn" style="margin-top:9px">About ' + K.fmtQty(sim.wasted, it.unit) +
@@ -2107,10 +2656,11 @@ function openStock(id) {
   var sc = stockInputScale(it.unit);
   SHEET = { kind: "stock", id: id, exp: it.shelfLife || 30, scale: sc.factor };
   $("#stkTitle").textContent = "Add " + it.name.toLowerCase();
-  $("#stkSub").textContent = "Whatever is already in the cupboard. No price needed — " +
-    "this does not count against the month's budget.";
+  $("#stkSub").textContent = "Whatever is already in the cupboard. Add the price only " +
+    "if you bought it this month.";
   $("#stkQtyLabel").textContent = "How much (" + sc.noun + ")";
   $("#stkQty").value = "";
+  $("#stkPaid").value = "";
   $("#stkQty").setAttribute("step", sc.step);
   $("#stkQty").setAttribute("min", "0");
   $("#stkTags").innerHTML = tagsHTML(SHEET.exp);
@@ -2140,24 +2690,63 @@ function stockPreview() {
   var h = '<div class="kv"><span>Stock becomes</span><b class="num">' +
     K.fmtQty(K.stockOf(it) + q, it.unit) + " " + K.UNIT_LABEL[it.unit] + "</b></div>" +
     '<div class="kv"><span>Covers you</span><b class="num">' + K.fmtDays(cover) + "</b></div>";
+
+  // A price turns this into a real purchase, so it has to answer the same two
+  // questions the buy sheet does: what it costs, and whether it beat normal.
+  var paid = num($("#stkPaid").value);
+  var v = viewOf(it);
+  var baseUnit = K.budgetUnit(v.offs);
+  var savedHere = 0;
+  if (isFinite(paid) && paid > 0) {
+    if (baseUnit !== null) savedHere = Math.max(0, baseUnit * q - paid);
+    h += '<div class="kv"><span>Costs</span><b class="num">' + K.kr(paid) + "</b></div>";
+    if (baseUnit === null) {
+      h += '<div class="hint" style="margin-top:6px">No normal price known for ' +
+        esc(it.name.toLowerCase()) + " yet, so this counts as spend only — add a product " +
+        "to the lookout list and savings can be worked out.</div>";
+    } else if (savedHere > 0.5) {
+      h += '<div class="kv"><span>Cheaper than usual by</span><b class="num save">' +
+        K.kr(savedHere) + "</b></div>";
+    }
+  }
   if (sim.wasted > 0.001) {
     h += '<div class="warn" style="margin-top:9px">About ' + K.fmtQty(sim.wasted, it.unit) +
       " " + K.UNIT_LABEL[it.unit] + " would go off before you eat it.</div>";
   }
   $("#stkPrev").innerHTML = h;
-  SHEET.preview = { qty: q, expDay: expDay };
+  SHEET.preview = { qty: q, expDay: expDay,
+    paid: isFinite(paid) && paid > 0 ? paid : 0, saved: savedHere };
 }
 
 function confirmStock() {
   var it = byId(SHEET.id);
   var p = SHEET.preview;
   if (!it || !p || !(p.qty > 0)) { toast("Enter an amount first."); return; }
+  var t = K.today();
   it.lots.push({ id: uid(), qty: p.qty, exp: p.expDay, open: null,
-    bought: K.today(), product: "" });
-  it.asOf = K.today();
+    bought: t, product: "", paid: p.paid || 0 });
+  it.asOf = t;
+
+  // Only a priced addition touches the money side. Unpriced stock is "food I
+  // already owned", and charging it to this month would import June's shopping.
+  if (p.paid > 0) {
+    it.spent = (it.spent || 0) + p.paid;
+    it.saved = (it.saved || 0) + (p.saved || 0);
+    it.boughtQty = (it.boughtQty || 0) + p.qty;
+    S.receipts.push({
+      ts: Date.now(), day: t, itemId: it.id, item: it.name,
+      store: "", product: "Added by hand", packs: 1,
+      packQty: p.qty, unit: it.unit, qty: p.qty,
+      price: p.paid, total: p.paid, saved: p.saved || 0,
+    });
+    if (S.receipts.length > 400) S.receipts = S.receipts.slice(-400);
+  }
+
   save();
   closeSheets();
-  toast("Added to " + it.name.toLowerCase() + ".");
+  toast(p.paid > 0
+    ? "Added " + K.fmtQty(p.qty, it.unit) + " " + K.UNIT_LABEL[it.unit] + " · " + K.kr(p.paid)
+    : "Added to " + it.name.toLowerCase() + ".");
   render();
 }
 
@@ -2241,22 +2830,46 @@ function openReset() {
   var m = monthTotals();
   $("#resetSub").textContent = "Filing " + monthName(S.month) + ".";
   var lines = S.items.filter(function (it) { return it.spent > 0 || it.boughtQty > 0; });
-  var h = '<div class="kv"><span>Spent</span><b class="num">' + K.kr0(m.spent) + " kr</b></div>" +
-    '<div class="kv"><span>Saved</span><b class="num save">' + K.kr0(m.saved) + " kr</b></div>" +
+  var h = '<div class="kv"><span>Spent</span><b class="num">' + K.kr0(m.spent) + "</b></div>" +
+    '<div class="kv"><span>Saved</span><b class="num save">' + K.kr0(m.saved) + "</b></div>" +
     '<div class="kv"><span>Purchases</span><b class="num">' + S.receipts.length + "</b></div>";
   lines.forEach(function (it) {
     h += '<div class="kv"><span>' + esc(it.name) + "</span><b class=\"num\">" +
       K.fmtQty(it.boughtQty, it.unit) + " " + K.UNIT_LABEL[it.unit] + " · " +
-      K.kr0(it.spent) + " kr</b></div>";
+      K.kr0(it.spent) + "</b></div>";
   });
   $("#resetPrev").innerHTML = h;
   openSheet("#mReset");
 }
 
-function confirmReset() {
+/*
+ * Close the month without being asked. The old build put a banner on two tabs
+ * and waited; if you ignored it, October's receipts kept piling into September
+ * and every number was wrong until you noticed.
+ *
+ * Nothing about the cupboard changes, which is what makes this safe: stock,
+ * lookout lists and the plan all survive, so the new month's "still to buy"
+ * already knows what last month left behind and opens lower by exactly that.
+ */
+function autoCloseIfNeeded() {
+  if (S.month === K.monthKeyOf()) return false;
+  var had = S.receipts.length || S.items.some(function (it) { return it.spent > 0; });
+  var closed = monthName(S.month);
   var m = monthTotals();
+  archiveMonth(m);
+  save();
+  if (had) {
+    setTimeout(function () {
+      toast(closed + " filed · " + K.kr0(m.spent) + " spent, " + K.kr0(m.saved) + " saved.");
+    }, 400);
+  }
+  return true;
+}
+
+/** Shared by the automatic close and the manual one on the Money tab. */
+function archiveMonth(m) {
   S.archive.push({
-    month: S.month, spent: m.spent, saved: m.saved, budget: m.budget,
+    month: S.month, spent: m.spent, saved: m.saved, budget: m.plan,
     items: S.items.map(function (it) {
       return { name: it.name, unit: it.unit, qty: it.boughtQty, spent: it.spent,
         saved: it.saved, wasted: it.wasted };
@@ -2264,12 +2877,15 @@ function confirmReset() {
     receipts: S.receipts.slice(),
   });
   if (S.archive.length > 24) S.archive = S.archive.slice(-24);
-
   S.receipts = [];
   S.items.forEach(function (it) {
     it.spent = 0; it.saved = 0; it.boughtQty = 0; it.wasted = 0;
   });
   S.month = K.monthKeyOf();
+}
+
+function confirmReset() {
+  archiveMonth(monthTotals());
   save();
   closeSheets();
   toast("Filed. Stock and lists are untouched.");
@@ -2282,6 +2898,7 @@ var TAB = "today";
 
 function render() {
   reconcileAll();
+  autoCloseIfNeeded();
   $$("#p-today,#p-stock,#p-money,#p-plan").forEach(function (p) {
     p.classList.toggle("on", p.id === "p-" + TAB);
   });
@@ -2305,7 +2922,7 @@ function render() {
   pip.hidden = todo.length === 0;
   pip.textContent = todo.length;
 
-  $("#hRight").textContent = m.saved > 0 ? "saved " + K.kr0(m.saved) + " kr" : "";
+  $("#hRight").textContent = m.saved > 0 ? "saved " + K.kr0(m.saved) : "";
   var d = new Date();
   $("#hSub").textContent = TAB === "today"
     ? d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })
@@ -2403,12 +3020,24 @@ document.addEventListener("click", function (e) {
     return;
   }
 
-  if (act === "dropLot") {
+  // Binned and finished are different facts and used to share one button, so
+  // food you explicitly threw out was invisible in `wasted` while food the sim
+  // merely GUESSED had expired was counted. Backwards. Now each says what it is.
+  if (act === "dropLot" || act === "usedLot") {
     var it3 = byId(id);
+    if (!it3) return;
+    var binned = act === "dropLot";
     var kill = {};
     String(b.dataset.lot).split(",").forEach(function (x) { kill[x] = true; });
+    var gone = 0;
+    it3.lots.forEach(function (l) { if (kill[l.id]) gone += Math.max(0, l.qty); });
     it3.lots = it3.lots.filter(function (l) { return !kill[l.id]; });
-    save(); render(); return;
+    if (binned) it3.wasted = (it3.wasted || 0) + gone;
+    save(); render();
+    toast(binned
+      ? "Binned " + K.fmtQty(gone, it3.unit) + " " + K.UNIT_LABEL[it3.unit] + "."
+      : "Marked finished — not counted as waste.");
+    return;
   }
 
   if (act === "toggleOpen") {
@@ -2441,6 +3070,35 @@ document.addEventListener("click", function (e) {
   if (act === "openReset") { openReset(); return; }
   if (act === "confirmReset") { confirmReset(); return; }
   if (act === "refresh") { toast("Checking…"); loadCatalog(); return; }
+  if (act === "sfilt") {
+    var want = b.dataset.store || "";
+    SFILT[id] = want;
+    var wrap = $("#sf-" + id);
+    if (wrap) {
+      var kids = wrap.children;
+      for (var ci = 0; ci < kids.length; ci++) {
+        kids[ci].classList.toggle("on", (kids[ci].dataset.store || "") === want);
+      }
+    }
+    renderResults(id);
+    return;
+  }
+  if (act === "losort") {
+    LOSORT[id] = LOSORT[id] === "store" ? "" : "store";
+    var lo3 = $("#lo-" + id);
+    if (lo3) lo3.innerHTML = lookoutHTML(viewOf(byId(id)));
+    return;
+  }
+  if (act === "openPlanCSV") { openPlanCSV(); return; }
+  if (act === "applyPlanCSV") { applyPlanCSV(); return; }
+  if (act === "planCSVCopy") {
+    var ta = $("#planCSVArea");
+    ta.select();
+    try { document.execCommand("copy"); toast("Copied."); }
+    catch (e) { toast("Select and copy by hand."); }
+    if (ta.setSelectionRange) ta.setSelectionRange(0, 0);
+    return;
+  }
   if (act === "export") { doExport(); return; }
   if (act === "import") { $("#importFile").click(); return; }
 
@@ -2471,8 +3129,13 @@ document.addEventListener("input", function (e) {
     searchTimer = setTimeout(function () { renderResults(id); }, 180);
     return;
   }
+  if (t.id === "planCSVArea") {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(previewPlanCSV, 200);
+    return;
+  }
   if (t.id === "buyPacks" || t.id === "buyPrice") { buyPreview(); return; }
-  if (t.id === "stkQty") { stockPreview(); return; }
+  if (t.id === "stkQty" || t.id === "stkPaid") { stockPreview(); return; }
   if (t.id === "itMonth") {
     var m = num(t.value);
     $("#itDay").value = isFinite(m) && m > 0 ? round3(m / K.MONTH) : "";
@@ -2508,7 +3171,8 @@ document.addEventListener("change", function (e) {
   }
   if (t.dataset && t.dataset.act === "set") {
     var n = num(t.value);
-    if (isFinite(n) && n > 0) { S.settings[t.dataset.k] = n; save(); render(); }
+    var floor = t.dataset.zero ? 0 : 1;   // 0 is a real answer for "buy ahead by"
+    if (isFinite(n) && n >= floor) { S.settings[t.dataset.k] = n; save(); render(); }
     return;
   }
 });
